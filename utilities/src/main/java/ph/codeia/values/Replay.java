@@ -6,6 +6,12 @@ import java.lang.ref.WeakReference;
  * This file is a part of the vanilla project.
  */
 
+/**
+ * A {@link Channel} that remembers the last value sent.
+ *
+ * The last value is sent immediately to newly-registered listeners
+ * if present.
+ */
 public class Replay<T> implements Channel<T> {
 
     private final Channel<T> delegate;

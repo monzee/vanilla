@@ -11,18 +11,15 @@ import java.util.List;
 public class Links implements Channel.Link {
 
     public static Links of(Channel.Link... links) {
-        return new Links().add(links);
+        Links result = new Links();
+        result.links.addAll(Arrays.asList(links));
+        return result;
     }
 
     private final List<Channel.Link> links = new ArrayList<>();
 
     public Links add(Channel.Link link) {
         links.add(link);
-        return this;
-    }
-
-    public Links add(Channel.Link... links) {
-        this.links.addAll(Arrays.asList(links));
         return this;
     }
 

@@ -8,6 +8,11 @@ import java.util.Set;
  * This file is a part of the vanilla project.
  */
 
+/**
+ * A simple channel that keeps a {@link LinkedHashSet} of listeners.
+ *
+ * The listeners are called in temporal order whenever a message is sent.
+ */
 public class SimpleChannel<T> implements Channel<T> {
 
     private final Set<Do.Just<T>> listeners =

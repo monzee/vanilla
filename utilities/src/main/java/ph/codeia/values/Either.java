@@ -1,5 +1,6 @@
 package ph.codeia.values;
 
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -9,15 +10,38 @@ import java.util.concurrent.TimeoutException;
  * This file is a part of the vanilla project.
  */
 
+/**
+ * An implementation of {@link Do.Try} that can be converted to a
+ * {@link Future}.
+ *
+ * Calls to {@link #get()} will block the thread until a value or an error
+ * is set.
+ *
+ * @param <E> The error type
+ * @param <T> The success type
+ */
 public class Either<E extends Throwable, T> implements Do.Try<T> {
 
-    public static <T> Do.Try<T> ok(T value) {
+    /**
+     * Creates an Either from a {@link Callable}.
+     */
+    public static <T> Either<Exception, T> of(Callable<T> value) {
+        Either<Exception, T> either = new Either<>();
+        try {
+            either.pass(value.call());
+        } catch (Exception e) {
+            either.fail(e);
+        }
+        return either;
+    }
+
+    public static <T> Either<?, T> ok(T value) {
         Either<?, T> either = new Either<>();
         either.pass(value);
         return either;
     }
 
-    public static <T> Do.Try<T> error(Throwable error) {
+    public static <T> Either<Throwable, T> error(Throwable error) {
         Either<Throwable, T> either = new Either<>();
         either.fail(error);
         return either;
@@ -45,6 +69,9 @@ public class Either<E extends Throwable, T> implements Do.Try<T> {
         }
     }
 
+    /**
+     * Completes the computation with an error.
+     */
     public synchronized void fail(E error) {
         if (state == State.INCOMPLETE) {
             this.error = error;
@@ -53,6 +80,9 @@ public class Either<E extends Throwable, T> implements Do.Try<T> {
         }
     }
 
+    /**
+     * Completes the computation.
+     */
     public synchronized void pass(T value) {
         if (state == State.INCOMPLETE) {
             this.value = value;
@@ -61,6 +91,12 @@ public class Either<E extends Throwable, T> implements Do.Try<T> {
         }
     }
 
+    /**
+     * Creates a future.
+     *
+     * @return Cancelling does nothing. Mostly useful for the timed get() and
+     *         compatibility with other code that consumes futures.
+     */
     public Future<T> toFuture() {
         return new Future<T>() {
             @Override
