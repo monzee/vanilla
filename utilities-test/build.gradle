@@ -1,0 +1,9 @@
+apply plugin: 'java'
+apply plugin: 'me.tatarka.retrolambda'
+
+dependencies {
+    compile fileTree(dir: 'libs', include: ['*.jar'])
+    compile project(path: ':utilities')
+    testCompile 'junit:junit:4.12'
+}
+
