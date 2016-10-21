@@ -50,6 +50,7 @@ public class MemoizeTest {
     @AfterClass
     public static void tearDown() {
         BG.shutdown();
+        FG.shutdown();
     }
 
     private Store cache;
@@ -156,8 +157,9 @@ public class MemoizeTest {
         final AtomicBoolean called = new AtomicBoolean(false);
 
         AtomicReference<String> result = new AtomicReference<>();
-        Seq.<String> of(next -> next.got("foo")
-        ).<String> pipe(r.once("key", (value, next) -> {
+        Seq.<String> of(next -> {
+            next.got("foo");
+        }).<String> pipe(r.once("key", (value, next) -> {
             next.got(value + "bar");
         })).<String> pipe((value, next) -> {
             next.got(value + "baz");
