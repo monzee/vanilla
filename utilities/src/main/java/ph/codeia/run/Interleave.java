@@ -17,11 +17,11 @@ public class Interleave implements Runner {
     }
 
     @Override
-    public <T> Do.Executable<T> run(final Do.Executable<T> block) {
-        return worker.run(new Do.Executable<T>() {
+    public <T> Do.Execute<T> run(final Do.Execute<T> block) {
+        return worker.run(new Do.Execute<T>() {
             @Override
-            public void start(Do.Just<T> next) {
-                block.start(main.run(next));
+            public void begin(Do.Just<T> next) {
+                block.begin(main.run(next));
             }
         });
     }

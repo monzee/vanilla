@@ -11,7 +11,7 @@ public class PassThrough implements Runner {
     public static Runner RUNNER = new PassThrough();
 
     @Override
-    public <T> Do.Executable<T> run(Do.Executable<T> block) {
+    public <T> Do.Execute<T> run(Do.Execute<T> block) {
         return block;
     }
 

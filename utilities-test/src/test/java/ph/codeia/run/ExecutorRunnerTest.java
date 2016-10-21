@@ -50,7 +50,7 @@ public class ExecutorRunnerTest {
             assertEquals("caller", S.get());
             counter.getAndIncrement();
             next.got(null);
-        }).start(value -> {
+        }).begin(value -> {
             assertEquals("caller", S.get());
             counter.getAndIncrement();
         });
@@ -63,7 +63,7 @@ public class ExecutorRunnerTest {
         Runner r = new ExecutorRunner(EXEC);
         final CountDownLatch done = new CountDownLatch(3);
         assertNotEquals("worker", S.get());
-        Seq.of(r.run((Do.Executable<Void>) next -> {
+        Seq.of(r.run((Do.Execute<Void>) next -> {
             done.countDown();
             assertEquals("worker", S.get());
             next.got(null);
@@ -71,7 +71,7 @@ public class ExecutorRunnerTest {
             done.countDown();
             assertEquals("worker", S.get());
             next.got(null);
-        }).start(value -> {
+        }).begin(value -> {
             done.countDown();
             assertEquals("worker", S.get());
         });
@@ -91,7 +91,7 @@ public class ExecutorRunnerTest {
             assertEquals("worker", S.get());
             done.countDown();
             next.got(null);
-        })).start(value -> {
+        })).begin(value -> {
             assertEquals("worker", S.get());
             done.countDown();
         });
@@ -115,7 +115,7 @@ public class ExecutorRunnerTest {
             assertEquals("worker", S.get());
             done.countDown();
             next.got(null);
-        })).start(value -> {
+        })).begin(value -> {
             assertEquals("worker", S.get());
             done.countDown();
         });

@@ -17,14 +17,14 @@ public class ExecutorRunner implements Runner {
     }
 
     @Override
-    public <T> Do.Executable<T> run(final Do.Executable<T> block) {
-        return new Do.Executable<T>() {
+    public <T> Do.Execute<T> run(final Do.Execute<T> block) {
+        return new Do.Execute<T>() {
             @Override
-            public void start(final Do.Just<T> next) {
+            public void begin(final Do.Just<T> next) {
                 context.execute(new Runnable() {
                     @Override
                     public void run() {
-                        block.start(next);
+                        block.begin(next);
                     }
                 });
             }

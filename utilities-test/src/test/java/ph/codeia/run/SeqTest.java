@@ -29,7 +29,7 @@ public class SeqTest {
             next.got(result + "bar");
         }).<String> andThen((result, next) -> {
             next.got(result + "baz");
-        }).start(result -> {
+        }).begin(result -> {
             done.set(true);
             assertEquals("foobarbaz", result);
         });
@@ -46,7 +46,7 @@ public class SeqTest {
             assertEquals("foobar", result);
         };
         while (n --> 0) {
-            seq.start(terminal);
+            seq.begin(terminal);
         }
         assertEquals(0, done.get());
     }
@@ -57,7 +57,7 @@ public class SeqTest {
             next.got("foobarbaz");
         }).<Integer> andThen((result, next) -> {
             next.got(result.length());
-        }).start(result -> {
+        }).begin(result -> {
             assertEquals(9, result.intValue());
         });
     }
@@ -83,7 +83,7 @@ public class SeqTest {
             }
         })).<String> andThen((result, next) -> {
             next.got("foo" + result);
-        }).start(result -> {
+        }).begin(result -> {
             assertEquals("fooBARbaz", result);
             done.countDown();
         });
@@ -95,7 +95,7 @@ public class SeqTest {
         final AtomicBoolean done = new AtomicBoolean(false);
         Seq.<Do.Try<String>> of(next -> {
             next.got(Either.error(new Throwable("hi")));
-        }).start(result -> {
+        }).begin(result -> {
             try {
                 result.get();
                 fail("should be unreachable");
@@ -143,7 +143,7 @@ public class SeqTest {
             assertEquals("background", NAME.get());
             done.countDown();
             next.got(result + "-vwxyz");
-        }).start(result -> {
+        }).begin(result -> {
             assertEquals("background", NAME.get());
             assertEquals("abcde-100-vwxyz", result);
             done.countDown();
@@ -169,12 +169,12 @@ public class SeqTest {
         Do.Just<Void> last = result -> count.incrementAndGet();
 
         happyPath.set(false);
-        branch.start(last);
+        branch.begin(last);
         assertEquals(1, count.get());
 
         count.set(0);
         happyPath.set(true);
-        branch.start(last);
+        branch.begin(last);
         assertEquals(3, count.get());
     }
 

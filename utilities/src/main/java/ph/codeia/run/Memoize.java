@@ -23,7 +23,7 @@ public class Memoize implements CachingRunner {
     }
 
     @Override
-    public <T> Do.Executable<T> run(Do.Executable<T> block) {
+    public <T> Do.Execute<T> run(Do.Execute<T> block) {
         return delegate.run(block);
     }
 
@@ -38,15 +38,15 @@ public class Memoize implements CachingRunner {
     }
 
     @Override
-    public <T> Do.Executable<T> once(final String key, final Do.Executable<T> block) {
-        return delegate.run(new Do.Executable<T>() {
+    public <T> Do.Execute<T> once(final String key, final Do.Execute<T> block) {
+        return delegate.run(new Do.Execute<T>() {
             @Override
-            public void start(Do.Just<T> next) {
+            public void begin(Do.Just<T> next) {
                 next.got(store.hardGet(key, new Do.Make<T>() {
                     @Override
                     public T get() {
                         final Wait<T> result = new Wait<>();
-                        block.start(new Do.Just<T>() {
+                        block.begin(new Do.Just<T>() {
                             @Override
                             public void got(T value) {
                                 result.set(value);

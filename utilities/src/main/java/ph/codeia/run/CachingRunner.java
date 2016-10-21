@@ -8,7 +8,7 @@ import ph.codeia.values.Do;
 
 public interface CachingRunner extends Runner {
 
-    <T> Do.Executable<T> once(String key, Do.Executable<T> block);
+    <T> Do.Execute<T> once(String key, Do.Execute<T> block);
     <T, U> Do.Continue<T, U> once(String key, Do.Continue<T, U> block);
 
 }

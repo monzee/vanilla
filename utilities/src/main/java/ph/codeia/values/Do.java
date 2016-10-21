@@ -90,8 +90,8 @@ public interface Do {
      *
      * @param <T> The type of the value expected by the continuation.
      */
-    interface Executable<T> {
-        void start(Just<T> next);
+    interface Execute<T> {
+        void begin(Just<T> next);
     }
 
     /**

@@ -14,11 +14,11 @@ import ph.codeia.values.Do;
  *            to the next step.
  */
 @SuppressWarnings({"unchecked", "rawtypes"})
-public class Seq<T, U> implements Do.Executable<U> {
+public class Seq<T, U> implements Do.Execute<U> {
 
-    private static final Do.Executable<Void> NIL = new Do.Executable<Void>() {
+    private static final Do.Execute<Void> NIL = new Do.Execute<Void>() {
         @Override
-        public void start(Do.Just<Void> next) {
+        public void begin(Do.Just<Void> next) {
             next.got(null);
         }
     };
@@ -33,19 +33,19 @@ public class Seq<T, U> implements Do.Executable<U> {
      *
      * @param block An action that takes a continuation.
      */
-    public static <T> Seq<?, T> of(final Do.Executable<T> block) {
+    public static <T> Seq<?, T> of(final Do.Execute<T> block) {
         return new Seq<>(NIL, new Do.Continue<Void, T>() {
             @Override
             public void then(Void ignored, Do.Just<T> next) {
-                block.start(next);
+                block.begin(next);
             }
         });
     }
 
-    private final Do.Executable<T> prev;
+    private final Do.Execute<T> prev;
     private final Do.Continue<T, U> step;
 
-    private Seq(Do.Executable<T> prev, Do.Continue<T, U> step) {
+    private Seq(Do.Execute<T> prev, Do.Continue<T, U> step) {
         this.prev = prev;
         this.step = step;
     }
@@ -69,8 +69,8 @@ public class Seq<T, U> implements Do.Executable<U> {
      * @param next The last step in the computation.
      */
     @Override
-    public void start(final Do.Just<U> next) {
-        prev.start(new Do.Just<T>() {
+    public void begin(final Do.Just<U> next) {
+        prev.begin(new Do.Just<T>() {
             @Override
             public void got(T value) {
                 step.then(value, next);
@@ -82,7 +82,7 @@ public class Seq<T, U> implements Do.Executable<U> {
      * Executes a computation and ignores the final value produced.
      */
     public void start() {
-        start(NOOP);
+        begin(NOOP);
     }
 
 }

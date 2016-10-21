@@ -50,11 +50,11 @@ public class InterleaveTest {
         Runner r = new Interleave(worker, main);
         final CountDownLatch done = new CountDownLatch(2);
         S.set("caller");
-        r.run((Do.Executable<Object>) next -> {
+        r.run((Do.Execute<Object>) next -> {
             assertEquals("worker", S.get());
             done.countDown();
             next.got(null);
-        }).start(next -> {
+        }).begin(next -> {
             assertEquals("main", S.get());
             done.countDown();
         });
@@ -66,7 +66,7 @@ public class InterleaveTest {
         Runner r = new Interleave(worker, main);
         final CountDownLatch done = new CountDownLatch(3);
         S.set("caller");
-        Seq.of(r.run((Do.Executable<Object>) next -> {
+        Seq.of(r.run((Do.Execute<Object>) next -> {
             assertEquals("worker", S.get());
             done.countDown();
             next.got(null);
@@ -74,7 +74,7 @@ public class InterleaveTest {
             assertEquals("main", S.get());
             done.countDown();
             next.got(null);
-        }).start(value -> {
+        }).begin(value -> {
             assertEquals("main", S.get());
             done.countDown();
         });
@@ -94,7 +94,7 @@ public class InterleaveTest {
             assertEquals("worker", S.get());
             done.countDown();
             next.got(null);
-        })).start(value -> {
+        })).begin(value -> {
             assertEquals("main", S.get());
             done.countDown();
         });
@@ -114,7 +114,7 @@ public class InterleaveTest {
             assertEquals("worker", S.get());
             done.countDown();
             next.got(null);
-        })).start(value -> {
+        })).begin(value -> {
             assertEquals("main", S.get());
             done.countDown();
         });

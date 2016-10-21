@@ -58,10 +58,10 @@ public class MemoizeTest {
         assertNull(cache.get("key", null));
         final AtomicBoolean called = new AtomicBoolean(false);
 
-        r.once("key", (Do.Executable<String>) next -> {
+        r.once("key", (Do.Execute<String>) next -> {
             next.got("FOO");
             called.set(true);
-        }).start(value -> {
+        }).begin(value -> {
             assertEquals("FOO", value);
         });
 
@@ -70,10 +70,10 @@ public class MemoizeTest {
 
         called.set(false);
         final AtomicBoolean done = new AtomicBoolean(false);
-        r.once("key", (Do.Executable<String>) next -> {
+        r.once("key", (Do.Execute<String>) next -> {
             next.got("BAR");
             called.set(true);
-        }).start(value -> {
+        }).begin(value -> {
             assertNotEquals("BAR", value);
             done.set(true);
         });
@@ -92,7 +92,7 @@ public class MemoizeTest {
 
         Seq.<String> of(next -> {
             next.got("foo");
-        }).andThen(mid).start(value -> {
+        }).andThen(mid).begin(value -> {
             assertEquals("foobar", value);
         });
 
@@ -101,7 +101,7 @@ public class MemoizeTest {
         Seq.<String> of(next -> {
             next.got("FOO");
             called.set(true);
-        }).andThen(mid).start(value -> {
+        }).andThen(mid).begin(value -> {
             assertThat(value, not(containsString("FOO")));
             result.set(value);
         });
@@ -121,7 +121,7 @@ public class MemoizeTest {
         AtomicReference<String> result = new AtomicReference<>();
         Seq.<String> of(next -> {
             next.got("foo");
-        }).andThen(mid).andThen(mid).andThen(mid).andThen(mid).start(result::set);
+        }).andThen(mid).andThen(mid).andThen(mid).andThen(mid).begin(result::set);
 
         assertEquals(1, count.get());
         assertEquals("foobar", result.get());
@@ -137,7 +137,7 @@ public class MemoizeTest {
         r.once("key", (Do.Just<String> next) -> {
             called.set(true);
             next.got("yes");
-        }).start(result::set);
+        }).begin(result::set);
 
         assertFalse(called.get());
         assertEquals("NOPE", result.get());
@@ -157,7 +157,7 @@ public class MemoizeTest {
         }).<String> andThen(r.once("key", (value, next) -> {
             called.set(true);
             next.got(value + "quux");
-        })).start(result::set);
+        })).begin(result::set);
 
         assertFalse(called.get());
         assertEquals("foobar", result.get());
