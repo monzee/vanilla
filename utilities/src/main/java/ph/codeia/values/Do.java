@@ -4,6 +4,9 @@ package ph.codeia.values;
  * This file is a part of the vanilla project.
  */
 
+/**
+ * A bunch of single-method interfaces for "functional" programming.
+ */
 public interface Do {
 
     /**
@@ -88,7 +91,7 @@ public interface Do {
      * @param <T> The type of the value expected by the continuation.
      */
     interface Executable<T> {
-        void execute(Just<T> next);
+        void start(Just<T> next);
     }
 
     /**
@@ -100,69 +103,6 @@ public interface Do {
      */
     interface Continue<T, U> {
         void then(T value, Just<U> next);
-    }
-
-    /**
-     * Represents a step in a computation.
-     *
-     * @param <T> The type of the result of the previous step
-     * @param <U> The type of the value computed by this step and to be sent
-     *            to the next step.
-     */
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    class Seq<T, U> implements Executable<U> {
-
-        private static final Executable<Void> NIL = next -> next.got(null);
-
-        private static final Just NOOP = ignored -> {};
-
-        /**
-         * Starts a computation.
-         *
-         * @param block An action that takes a continuation.
-         */
-        public static <T> Seq<?, T> start(Executable<T> block) {
-            return new Seq<>(NIL, (ignored, next) -> block.execute(next));
-        }
-
-        private final Executable<T> prev;
-        private final Continue<T, U> step;
-
-        private Seq(Executable<T> prev, Continue<T, U> step) {
-            this.prev = prev;
-            this.step = step;
-        }
-
-        /**
-         * Continues a computation.
-         *
-         * @param next The next step in the computation.
-         * @param <V> The type of the value produced by the next step.
-         */
-        public <V> Seq<U, V> andThen(Continue<U, V> next) {
-            return new Seq<>(this, next);
-        }
-
-        /**
-         * Executes a computation.
-         *
-         * Multiple calls redoes the computation. No caching is done here but
-         * each step may do their own caching.
-         *
-         * @param next The last step in the computation.
-         */
-        @Override
-        public void execute(Just<U> next) {
-            prev.execute(t -> step.then(t, next));
-        }
-
-        /**
-         * Executes a computation and ignores the final value produced.
-         */
-        public void execute() {
-            execute(NOOP);
-        }
-
     }
 
 }

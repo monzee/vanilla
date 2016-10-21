@@ -1,6 +1,8 @@
-package ph.codeia.values;
+package ph.codeia.signal;
 
 import java.lang.ref.WeakReference;
+
+import ph.codeia.values.Do;
 
 /**
  * This file is a part of the vanilla project.

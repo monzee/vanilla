@@ -1,4 +1,4 @@
-package ph.codeia.values;
+package ph.codeia.signal;
 
 import java.util.ArrayList;
 import java.util.Arrays;

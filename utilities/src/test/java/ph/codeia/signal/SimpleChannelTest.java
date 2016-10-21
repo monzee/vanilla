@@ -1,4 +1,4 @@
-package ph.codeia.values;
+package ph.codeia.signal;
 
 import org.junit.Test;
 

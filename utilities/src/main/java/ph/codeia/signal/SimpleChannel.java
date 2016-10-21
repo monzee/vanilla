@@ -1,8 +1,10 @@
-package ph.codeia.values;
+package ph.codeia.signal;
 
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Set;
+
+import ph.codeia.values.Do;
 
 /**
  * This file is a part of the vanilla project.

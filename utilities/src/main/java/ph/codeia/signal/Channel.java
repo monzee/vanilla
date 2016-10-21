@@ -1,4 +1,6 @@
-package ph.codeia.values;
+package ph.codeia.signal;
+
+import ph.codeia.values.Do;
 
 /**
  * This file is a part of the vanilla project.
@@ -31,7 +33,7 @@ public interface Channel<T> {
     /**
      * Registers a listener.
      *
-     * @return Save this value to unregister this listener later.
+     * @return Save this object to unregister this listener later.
      */
     Link link(Do.Just<T> listener);
 

@@ -1,4 +1,4 @@
-package ph.codeia.values;
+package ph.codeia.run;
 
 import org.junit.AfterClass;
 import org.junit.Test;
@@ -8,7 +8,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
+
+import ph.codeia.values.Do;
+import ph.codeia.values.Either;
 
 import static org.junit.Assert.*;
 
@@ -16,46 +18,46 @@ import static org.junit.Assert.*;
  * This file is a part of the vanilla project.
  */
 
-public class DoSeqTest implements Do {
+public class SeqTest {
 
-    @Test(timeout = 1000)
+    @Test
     public void straw_man() throws InterruptedException {
-        final CountDownLatch done = new CountDownLatch(1);
-        Seq.<String> start(next -> {
+        final AtomicBoolean done = new AtomicBoolean(false);
+        Seq.<String> of(next -> {
             next.got("foo");
         }).<String> andThen((result, next) -> {
             next.got(result + "bar");
         }).<String> andThen((result, next) -> {
             next.got(result + "baz");
-        }).execute(result -> {
-            done.countDown();
+        }).start(result -> {
+            done.set(true);
             assertEquals("foobarbaz", result);
         });
-        done.await();
+        assertTrue(done.get());
     }
 
-    @Test(timeout = 1000)
+    @Test
     public void single_step_executed_multiple_times() throws InterruptedException {
         int n = 5;
-        final CountDownLatch done = new CountDownLatch(n);
-        Seq<?, String> seq = Seq.start(next -> next.got("foobar"));
-        Just<String> terminal = result -> {
-            done.countDown();
+        final AtomicInteger done = new AtomicInteger(n);
+        Seq<?, String> seq = Seq.of(next -> next.got("foobar"));
+        Do.Just<String> terminal = result -> {
+            done.decrementAndGet();
             assertEquals("foobar", result);
         };
         while (n --> 0) {
-            seq.execute(terminal);
+            seq.start(terminal);
         }
-        done.await();
+        assertEquals(0, done.get());
     }
 
     @Test
     public void type_changing() {
-        Seq.<String> start(next -> {
+        Seq.<String> of(next -> {
             next.got("foobarbaz");
         }).<Integer> andThen((result, next) -> {
             next.got(result.length());
-        }).execute(result -> {
+        }).start(result -> {
             assertEquals(9, result.intValue());
         });
     }
@@ -70,74 +72,79 @@ public class DoSeqTest implements Do {
     @Test(timeout = 1000)
     public void async_step_in_the_middle() throws InterruptedException {
         final CountDownLatch done = new CountDownLatch(1);
-        Seq.<String> start(next -> {
+        Seq.<String> of(next -> {
             next.got("baz");
-        }).<String> andThen((result, next) -> {
-            EXEC.execute(() -> {
-                try {
-                    Thread.sleep(50);
-                    next.got("BAR" + result);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            });
-        }).<String> andThen((result, next) -> {
+        }).<String> andThen((result, next) -> EXEC.execute(() -> {
+            try {
+                Thread.sleep(50);
+                next.got("BAR" + result);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        })).<String> andThen((result, next) -> {
             next.got("foo" + result);
-        }).execute(result -> {
+        }).start(result -> {
             assertEquals("fooBARbaz", result);
             done.countDown();
         });
         done.await();
     }
 
-    @Test(timeout = 1000)
+    @Test
     public void error_handling() throws InterruptedException {
-        final CountDownLatch done = new CountDownLatch(1);
-        Seq.<Try<String>> start(next -> {
+        final AtomicBoolean done = new AtomicBoolean(false);
+        Seq.<Do.Try<String>> of(next -> {
             next.got(Either.error(new Throwable("hi")));
-        }).execute(result -> {
+        }).start(result -> {
             try {
                 result.get();
                 fail("should be unreachable");
             } catch (Throwable e) {
                 assertEquals("hi", e.getMessage());
             } finally {
-                done.countDown();
+                done.set(true);
             }
         });
-        done.await();
+        assertTrue(done.get());
     }
 
-    @Test(timeout = 1000)
+    @Test
     public void execute_no_receiver() throws InterruptedException {
         int n = 5;
-        final CountDownLatch done = new CountDownLatch(n);
-        Seq<?, Void> seq = Seq.start(next -> done.countDown());
+        final AtomicInteger done = new AtomicInteger(n);
+        Seq<?, Void> seq = Seq.of(next -> done.decrementAndGet());
         while (n --> 0) {
-            seq.execute();
+            seq.start();
         }
-        done.await();
+        assertEquals(0, done.get());
     }
+
+    private static final ThreadLocal<String> NAME = new ThreadLocal<>();
 
     @Test(timeout = 1000)
     public void async_causes_downstream_steps_to_switch_threads() throws InterruptedException {
-        final Thread mainThread = Thread.currentThread();
-        final AtomicReference<Thread> bgThread = new AtomicReference<>();
+        NAME.set("main");
+        final CountDownLatch nameSet = new CountDownLatch(1);
+        EXEC.execute(() -> {
+            NAME.set("background");
+            nameSet.countDown();
+        });
+        nameSet.await();
         final CountDownLatch done = new CountDownLatch(4);
-        Seq.<Integer> start(next -> {
-            assertSame(mainThread, Thread.currentThread());
+        Seq.<Integer> of(next -> {
+            assertEquals("main", NAME.get());
             done.countDown();
             next.got(100);
         }).<String> andThen((result, next) -> EXEC.execute(() -> {
-            bgThread.set(Thread.currentThread());
+            assertEquals("background", NAME.get());
             done.countDown();
             next.got("abcde-" + result);
         })).<String> andThen((result, next) -> {
-            assertSame(bgThread.get(), Thread.currentThread());
+            assertEquals("background", NAME.get());
             done.countDown();
             next.got(result + "-vwxyz");
-        }).execute(result -> {
-            assertSame(bgThread.get(), Thread.currentThread());
+        }).start(result -> {
+            assertEquals("background", NAME.get());
             assertEquals("abcde-100-vwxyz", result);
             done.countDown();
         });
@@ -148,7 +155,7 @@ public class DoSeqTest implements Do {
     public void you_are_not_obliged_to_go_down_the_happy_path() throws InterruptedException {
         final AtomicBoolean happyPath = new AtomicBoolean();
         final AtomicInteger count = new AtomicInteger();
-        Seq<?, Void> branch = Seq.<Boolean> start(next -> {
+        Seq<?, Void> branch = Seq.<Boolean> of(next -> {
             next.got(happyPath.get());
         }).andThen((result, next) -> {
             count.incrementAndGet();
@@ -159,15 +166,15 @@ public class DoSeqTest implements Do {
             count.incrementAndGet();
             next.got(null);
         });
-        Just<Void> last = result -> count.incrementAndGet();
+        Do.Just<Void> last = result -> count.incrementAndGet();
 
         happyPath.set(false);
-        branch.execute(last);
+        branch.start(last);
         assertEquals(1, count.get());
 
         count.set(0);
         happyPath.set(true);
-        branch.execute(last);
+        branch.start(last);
         assertEquals(3, count.get());
     }
 
