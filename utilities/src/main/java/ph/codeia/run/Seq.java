@@ -16,17 +16,30 @@ import ph.codeia.values.Do;
 @SuppressWarnings({"unchecked", "rawtypes"})
 public class Seq<T, U> implements Do.Executable<U> {
 
-    private static final Do.Executable<Void> NIL = next -> next.got(null);
+    private static final Do.Executable<Void> NIL = new Do.Executable<Void>() {
+        @Override
+        public void start(Do.Just<Void> next) {
+            next.got(null);
+        }
+    };
 
-    private static final Do.Just NOOP = ignored -> {};
+    private static final Do.Just NOOP = new Do.Just() {
+        @Override
+        public void got(Object ignored) {}
+    };
 
     /**
      * Starts a computation.
      *
      * @param block An action that takes a continuation.
      */
-    public static <T> Seq<?, T> of(Do.Executable<T> block) {
-        return new Seq<>(NIL, (ignored, next) -> block.start(next));
+    public static <T> Seq<?, T> of(final Do.Executable<T> block) {
+        return new Seq<>(NIL, new Do.Continue<Void, T>() {
+            @Override
+            public void then(Void ignored, Do.Just<T> next) {
+                block.start(next);
+            }
+        });
     }
 
     private final Do.Executable<T> prev;
@@ -56,8 +69,13 @@ public class Seq<T, U> implements Do.Executable<U> {
      * @param next The last step in the computation.
      */
     @Override
-    public void start(Do.Just<U> next) {
-        prev.start(value -> step.then(value, next));
+    public void start(final Do.Just<U> next) {
+        prev.start(new Do.Just<T>() {
+            @Override
+            public void got(T value) {
+                step.then(value, next);
+            }
+        });
     }
 
     /**

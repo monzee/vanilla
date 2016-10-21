@@ -17,18 +17,48 @@ public class ExecutorRunner implements Runner {
     }
 
     @Override
-    public <T> Do.Executable<T> run(Do.Executable<T> block) {
-        return next -> context.execute(() -> block.start(next));
+    public <T> Do.Executable<T> run(final Do.Executable<T> block) {
+        return new Do.Executable<T>() {
+            @Override
+            public void start(final Do.Just<T> next) {
+                context.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        block.start(next);
+                    }
+                });
+            }
+        };
     }
 
     @Override
-    public <T, U> Do.Continue<T, U> run(Do.Continue<T, U> block) {
-        return (value, next) -> context.execute(() -> block.then(value, next));
+    public <T, U> Do.Continue<T, U> run(final Do.Continue<T, U> block) {
+        return new Do.Continue<T, U>() {
+            @Override
+            public void then(final T value, final Do.Just<U> next) {
+                context.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        block.then(value, next);
+                    }
+                });
+            }
+        };
     }
 
     @Override
-    public <T> Do.Just<T> run(Do.Just<T> block) {
-        return value -> context.execute(() -> block.got(value));
+    public <T> Do.Just<T> run(final Do.Just<T> block) {
+        return new Do.Just<T>() {
+            @Override
+            public void got(final T value) {
+                context.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        block.got(value);
+                    }
+                });
+            }
+        };
     }
 
 }

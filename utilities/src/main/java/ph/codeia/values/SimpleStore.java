@@ -12,7 +12,7 @@ import java.util.Map;
 public class SimpleStore implements Store {
 
     private final Map<String, SoftReference<Object>> items =
-            Collections.synchronizedMap(new HashMap<>());
+            Collections.synchronizedMap(new HashMap<String, SoftReference<Object>>());
 
     @Override
     public void put(String key, Object value) {

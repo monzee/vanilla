@@ -1,7 +1,9 @@
 apply plugin: 'java'
-apply plugin: 'me.tatarka.retrolambda'
 
 dependencies {
     compile fileTree(dir: 'libs', include: ['*.jar'])
-    testCompile 'junit:junit:4.12'
 }
+
+targetCompatibility = 1.7
+sourceCompatibility = 1.7
+

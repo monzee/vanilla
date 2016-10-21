@@ -38,21 +38,47 @@ public class Memoize implements CachingRunner {
     }
 
     @Override
-    public <T> Do.Executable<T> once(String key, Do.Executable<T> block) {
-        return delegate.run((Do.Executable<T>) next -> next.got(store.hardGet(key, () -> {
-            Wait<T> result = new Wait<>();
-            block.start(result::set);
-            return result.get();
-        })));
+    public <T> Do.Executable<T> once(final String key, final Do.Executable<T> block) {
+        return delegate.run(new Do.Executable<T>() {
+            @Override
+            public void start(Do.Just<T> next) {
+                next.got(store.hardGet(key, new Do.Make<T>() {
+                    @Override
+                    public T get() {
+                        final Wait<T> result = new Wait<>();
+                        block.start(new Do.Just<T>() {
+                            @Override
+                            public void got(T value) {
+                                result.set(value);
+                            }
+                        });
+                        return result.get();
+                    }
+                }));
+            }
+        });
     }
 
     @Override
-    public <T, U> Do.Continue<T, U> once(String key, Do.Continue<T, U> block) {
-        return delegate.run((value, next) -> next.got(store.hardGet(key, () -> {
-            Wait<U> result = new Wait<>();
-            block.then(value, result::set);
-            return result.get();
-        })));
+    public <T, U> Do.Continue<T, U> once(final String key, final Do.Continue<T, U> block) {
+        return delegate.run(new Do.Continue<T, U>() {
+            @Override
+            public void then(final T value, Do.Just<U> next) {
+                next.got(store.hardGet(key, new Do.Make<U>() {
+                    @Override
+                    public U get() {
+                        final Wait<U> result = new Wait<>();
+                        block.then(value, new Do.Just<U>() {
+                            @Override
+                            public void got(U value1) {
+                                result.set(value1);
+                            }
+                        });
+                        return result.get();
+                    }
+                }));
+            }
+        });
     }
 
 }

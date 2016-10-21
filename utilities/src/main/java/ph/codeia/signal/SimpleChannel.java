@@ -35,9 +35,14 @@ public class SimpleChannel<T> implements Channel<T> {
     }
 
     @Override
-    public Link link(Do.Just<T> listener) {
+    public Link link(final Do.Just<T> listener) {
         listeners.add(listener);
-        return () -> listeners.remove(listener);
+        return new Link() {
+            @Override
+            public void unlink() {
+                listeners.remove(listener);
+            }
+        };
     }
 
 }

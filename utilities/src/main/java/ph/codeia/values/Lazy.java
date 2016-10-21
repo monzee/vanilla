@@ -14,7 +14,7 @@ public abstract class Lazy<T> implements Do.Make<T> {
     /**
      * Convenience factory method for java 1.8+
      */
-    public static <T> Lazy<T> of(Do.Make<T> value) {
+    public static <T> Lazy<T> of(final Do.Make<T> value) {
         return new Lazy<T>() {
             @Override
             protected T value() {
