@@ -56,7 +56,7 @@ public class Seq<T, U> implements Do.Execute<U> {
      * @param next The next step in the computation.
      * @param <V> The type of the value produced by the next step.
      */
-    public <V> Seq<U, V> andThen(Do.Continue<U, V> next) {
+    public <V> Seq<U, V> pipe(Do.Continue<U, V> next) {
         return new Seq<>(this, next);
     }
 

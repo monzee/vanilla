@@ -35,6 +35,9 @@ public class Wait<T> implements Do.Make<T> {
         return value;
     }
 
+    /**
+     * Sets the value. Only the first call works, subsequent calls do nothing.
+     */
     public void set(T value) {
         if (ready) {
             return;

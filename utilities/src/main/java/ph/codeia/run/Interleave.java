@@ -6,6 +6,9 @@ import ph.codeia.values.Do;
  * This file is a part of the vanilla project.
  */
 
+/**
+ * Runs the producer and the consumer parts of a block in separate runners.
+ */
 public class Interleave implements Runner {
 
     private final Runner worker;

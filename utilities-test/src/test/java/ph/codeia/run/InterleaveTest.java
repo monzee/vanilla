@@ -70,7 +70,7 @@ public class InterleaveTest {
             assertEquals("worker", S.get());
             done.countDown();
             next.got(null);
-        })).andThen((value, next) -> {
+        })).pipe((value, next) -> {
             assertEquals("main", S.get());
             done.countDown();
             next.got(null);
@@ -90,7 +90,7 @@ public class InterleaveTest {
             assertEquals("caller", S.get());
             done.countDown();
             next.got(null);
-        }).andThen(r.run((value, next) -> {
+        }).pipe(r.run((value, next) -> {
             assertEquals("worker", S.get());
             done.countDown();
             next.got(null);
@@ -110,7 +110,7 @@ public class InterleaveTest {
             assertEquals("worker", S.get());
             done.countDown();
             next.got(null);
-        }).andThen((value, next) -> {
+        }).pipe((value, next) -> {
             assertEquals("worker", S.get());
             done.countDown();
             next.got(null);

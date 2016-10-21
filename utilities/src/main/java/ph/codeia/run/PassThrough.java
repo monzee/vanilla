@@ -6,6 +6,9 @@ import ph.codeia.values.Do;
  * This file is a part of the vanilla project.
  */
 
+/**
+ * Doesn't actually do anything. May be useful for decorators.
+ */
 public class PassThrough implements Runner {
 
     public static Runner RUNNER = new PassThrough();

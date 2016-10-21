@@ -25,9 +25,9 @@ public class SeqTest {
         final AtomicBoolean done = new AtomicBoolean(false);
         Seq.<String> of(next -> {
             next.got("foo");
-        }).<String> andThen((result, next) -> {
+        }).<String> pipe((result, next) -> {
             next.got(result + "bar");
-        }).<String> andThen((result, next) -> {
+        }).<String> pipe((result, next) -> {
             next.got(result + "baz");
         }).begin(result -> {
             done.set(true);
@@ -55,7 +55,7 @@ public class SeqTest {
     public void type_changing() {
         Seq.<String> of(next -> {
             next.got("foobarbaz");
-        }).<Integer> andThen((result, next) -> {
+        }).<Integer> pipe((result, next) -> {
             next.got(result.length());
         }).begin(result -> {
             assertEquals(9, result.intValue());
@@ -74,14 +74,14 @@ public class SeqTest {
         final CountDownLatch done = new CountDownLatch(1);
         Seq.<String> of(next -> {
             next.got("baz");
-        }).<String> andThen((result, next) -> EXEC.execute(() -> {
+        }).<String> pipe((result, next) -> EXEC.execute(() -> {
             try {
                 Thread.sleep(50);
                 next.got("BAR" + result);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-        })).<String> andThen((result, next) -> {
+        })).<String> pipe((result, next) -> {
             next.got("foo" + result);
         }).begin(result -> {
             assertEquals("fooBARbaz", result);
@@ -135,11 +135,11 @@ public class SeqTest {
             assertEquals("main", NAME.get());
             done.countDown();
             next.got(100);
-        }).<String> andThen((result, next) -> EXEC.execute(() -> {
+        }).<String> pipe((result, next) -> EXEC.execute(() -> {
             assertEquals("background", NAME.get());
             done.countDown();
             next.got("abcde-" + result);
-        })).<String> andThen((result, next) -> {
+        })).<String> pipe((result, next) -> {
             assertEquals("background", NAME.get());
             done.countDown();
             next.got(result + "-vwxyz");
@@ -157,12 +157,12 @@ public class SeqTest {
         final AtomicInteger count = new AtomicInteger();
         Seq<?, Void> branch = Seq.<Boolean> of(next -> {
             next.got(happyPath.get());
-        }).andThen((result, next) -> {
+        }).pipe((result, next) -> {
             count.incrementAndGet();
             if (result) {
                 next.got(null);
             }
-        }).andThen((result, next) -> {
+        }).pipe((result, next) -> {
             count.incrementAndGet();
             next.got(null);
         });

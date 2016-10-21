@@ -8,6 +8,9 @@ import java.util.List;
  * This file is a part of the vanilla project.
  */
 
+/**
+ * Unlinks a group of links at the same time.
+ */
 public class Links implements Channel.Link {
 
     public static Links of(Channel.Link... links) {
@@ -28,6 +31,7 @@ public class Links implements Channel.Link {
         for (Channel.Link l : links) {
             l.unlink();
         }
+        links.clear();
     }
 
 }

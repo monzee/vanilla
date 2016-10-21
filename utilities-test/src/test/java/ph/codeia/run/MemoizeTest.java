@@ -5,6 +5,7 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -26,26 +27,32 @@ public class MemoizeTest {
 
     private static final ThreadLocal<String> S = new ThreadLocal<>();
     private static final ExecutorService BG = Executors.newSingleThreadExecutor();
-    private static final Runner RUNNER = new ExecutorRunner(BG);
-    private Store cache;
+    private static final ExecutorService FG = Executors.newSingleThreadExecutor();
+    private static final Runner ASYNC = new Interleave(
+            new ExecutorRunner(BG),
+            new ExecutorRunner(FG)
+    );
 
     @BeforeClass
     public static void staticSetup() throws InterruptedException {
-        synchronized (BG) {
-            BG.execute(() -> {
-                S.set("worker");
-                synchronized (BG) {
-                    BG.notifyAll();
-                }
-            });
-            BG.wait();
-        }
+        final CountDownLatch done = new CountDownLatch(2);
+        BG.execute(() -> {
+            S.set("worker");
+            done.countDown();
+        });
+        FG.execute(() -> {
+            S.set("main");
+            done.countDown();
+        });
+        done.await();
     }
 
     @AfterClass
     public static void tearDown() {
         BG.shutdown();
     }
+
+    private Store cache;
 
     @Before
     public void setup() {
@@ -92,7 +99,7 @@ public class MemoizeTest {
 
         Seq.<String> of(next -> {
             next.got("foo");
-        }).andThen(mid).begin(value -> {
+        }).pipe(mid).begin(value -> {
             assertEquals("foobar", value);
         });
 
@@ -101,7 +108,7 @@ public class MemoizeTest {
         Seq.<String> of(next -> {
             next.got("FOO");
             called.set(true);
-        }).andThen(mid).begin(value -> {
+        }).pipe(mid).begin(value -> {
             assertThat(value, not(containsString("FOO")));
             result.set(value);
         });
@@ -121,7 +128,7 @@ public class MemoizeTest {
         AtomicReference<String> result = new AtomicReference<>();
         Seq.<String> of(next -> {
             next.got("foo");
-        }).andThen(mid).andThen(mid).andThen(mid).andThen(mid).begin(result::set);
+        }).pipe(mid).pipe(mid).pipe(mid).pipe(mid).begin(result::set);
 
         assertEquals(1, count.get());
         assertEquals("foobar", result.get());
@@ -150,17 +157,45 @@ public class MemoizeTest {
 
         AtomicReference<String> result = new AtomicReference<>();
         Seq.<String> of(next -> next.got("foo")
-        ).<String> andThen(r.once("key", (value, next) -> {
+        ).<String> pipe(r.once("key", (value, next) -> {
             next.got(value + "bar");
-        })).<String> andThen((value, next) -> {
+        })).<String> pipe((value, next) -> {
             next.got(value + "baz");
-        }).<String> andThen(r.once("key", (value, next) -> {
+        }).<String> pipe(r.once("key", (value, next) -> {
             called.set(true);
             next.got(value + "quux");
         })).begin(result::set);
 
         assertFalse(called.get());
         assertEquals("foobar", result.get());
+    }
+
+    @Test(timeout = 1000)
+    public void async_delegate_does_not_deadlock() throws InterruptedException {
+        CachingRunner r = new Memoize(ASYNC, cache);
+        final CountDownLatch done = new CountDownLatch(1);
+        final AtomicReference<String> result = new AtomicReference<>();
+
+        FG.execute(() -> {
+            assertEquals("main", S.get());
+            r.once("K", (Do.Execute<String>) next -> {
+                assertEquals("worker", S.get());
+                try {
+                    Thread.sleep(16);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                    fail("interrupted");
+                }
+                next.got("sadflkj zxcvlkj asdf");
+            }).begin(s -> {
+                assertEquals("main", S.get());
+                result.set(s);
+                done.countDown();
+            });
+        });
+
+        done.await();
+        assertEquals(cache.get("K", null), result.get());
     }
 
 }

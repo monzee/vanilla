@@ -8,6 +8,13 @@ import ph.codeia.values.Wait;
  * This file is a part of the vanilla project.
  */
 
+/**
+ * Stores the values produced by a block in a {@link Store}.
+ *
+ * Blocks passed to {@link #once(String, Do.Continue)} and
+ * {@link #once(String, Do.Execute)} may be executed at most once. They will
+ * never be called if the key exists in the backing store.
+ */
 public class Memoize implements CachingRunner {
 
     private final Runner delegate;
@@ -70,8 +77,8 @@ public class Memoize implements CachingRunner {
                         final Wait<U> result = new Wait<>();
                         block.then(value, new Do.Just<U>() {
                             @Override
-                            public void got(U value1) {
-                                result.set(value1);
+                            public void got(U it) {
+                                result.set(it);
                             }
                         });
                         return result.get();

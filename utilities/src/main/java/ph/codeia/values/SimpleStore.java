@@ -9,6 +9,9 @@ import java.util.Map;
  * This file is a part of the vanilla project.
  */
 
+/**
+ * Stores soft references.
+ */
 public class SimpleStore implements Store {
 
     private final Map<String, SoftReference<Object>> items =

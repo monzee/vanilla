@@ -46,7 +46,7 @@ public class ExecutorRunnerTest {
             assertEquals("caller", S.get());
             counter.getAndIncrement();
             next.got(null);
-        }).andThen((value, next) -> {
+        }).pipe((value, next) -> {
             assertEquals("caller", S.get());
             counter.getAndIncrement();
             next.got(null);
@@ -67,7 +67,7 @@ public class ExecutorRunnerTest {
             done.countDown();
             assertEquals("worker", S.get());
             next.got(null);
-        })).andThen((value, next) -> {
+        })).pipe((value, next) -> {
             done.countDown();
             assertEquals("worker", S.get());
             next.got(null);
@@ -87,7 +87,7 @@ public class ExecutorRunnerTest {
             assertEquals("worker", S.get());
             done.countDown();
             next.got(null);
-        }).andThen((value, next) -> {
+        }).pipe((value, next) -> {
             assertEquals("worker", S.get());
             done.countDown();
             next.got(null);
@@ -107,11 +107,11 @@ public class ExecutorRunnerTest {
             assertEquals("caller", S.get());
             done.countDown();
             next.got(null);
-        }).andThen((value, next) -> {
+        }).pipe((value, next) -> {
             assertEquals("caller", S.get());
             done.countDown();
             next.got(null);
-        }).andThen(r.run((value, next) -> {
+        }).pipe(r.run((value, next) -> {
             assertEquals("worker", S.get());
             done.countDown();
             next.got(null);

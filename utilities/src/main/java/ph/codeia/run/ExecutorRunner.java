@@ -8,6 +8,9 @@ import ph.codeia.values.Do;
  * This file is a part of the vanilla project.
  */
 
+/**
+ * Runs a block in a runnable passed to an {@link Executor}.
+ */
 public class ExecutorRunner implements Runner {
 
     private final Executor context;

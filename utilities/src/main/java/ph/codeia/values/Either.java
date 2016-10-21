@@ -94,7 +94,7 @@ public class Either<E extends Throwable, T> implements Do.Try<T> {
     /**
      * Creates a future.
      *
-     * @return {@link Future#cancel(boolean) cancel} does nothing. Mostly useful
+     * @return {@link Future#cancel(boolean) Cancel} does nothing. Mostly useful
      *         for the {@link Future#get(long, TimeUnit) timed get} and
      *         compatibility with other code that consumes futures.
      */
