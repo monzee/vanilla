@@ -81,7 +81,7 @@ public class Seq<T, U> implements Do.Execute<U> {
     /**
      * Executes a computation and ignores the final value produced.
      */
-    public void start() {
+    public void begin() {
         begin(NOOP);
     }
 

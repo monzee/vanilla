@@ -20,7 +20,7 @@ public class ExecutorContext implements Runner {
     }
 
     @Override
-    public <T> Do.Execute<T> run(final Do.Execute<T> block) {
+    public <T> Do.Execute<T> wrap(final Do.Execute<T> block) {
         return new Do.Execute<T>() {
             @Override
             public void begin(final Do.Just<T> next) {
@@ -35,7 +35,7 @@ public class ExecutorContext implements Runner {
     }
 
     @Override
-    public <T, U> Do.Continue<T, U> run(final Do.Continue<T, U> block) {
+    public <T, U> Do.Continue<T, U> wrap(final Do.Continue<T, U> block) {
         return new Do.Continue<T, U>() {
             @Override
             public void then(final T value, final Do.Just<U> next) {

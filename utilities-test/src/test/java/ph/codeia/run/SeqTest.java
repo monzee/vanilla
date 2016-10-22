@@ -114,7 +114,7 @@ public class SeqTest {
         final AtomicInteger done = new AtomicInteger(n);
         Seq<?, Void> seq = Seq.of(next -> done.decrementAndGet());
         while (n --> 0) {
-            seq.start();
+            seq.begin();
         }
         assertEquals(0, done.get());
     }

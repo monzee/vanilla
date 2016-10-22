@@ -24,11 +24,11 @@ import ph.codeia.values.Store;
 public class AndroidLoaderStore implements Store {
 
     private static class Holder<T> {
-        boolean valid = false;
+        boolean started = false;
         T value;
 
         T ensureStarted() {
-            if (!valid) {
+            if (!started) {
                 throw new IllegalStateException(
                         "Don't use this store before Activity#onStart()."
                 );
@@ -69,12 +69,12 @@ public class AndroidLoaderStore implements Store {
     }
 
     @Override
-    public <T> T get(String key, T defaultValue) {
+    public <T> T get(String key, T fallback) {
         int id = id(key);
         if (exists(id)) {
             return get(id, null);
         }
-        return defaultValue;
+        return fallback;
     }
 
     @Override
@@ -86,7 +86,10 @@ public class AndroidLoaderStore implements Store {
         return get(id, lazyValue.get());
     }
 
-    private static int id(String key) {
+    /**
+     * Override this to change the id generation strategy.
+     */
+    protected int id(String key) {
         return key.hashCode();
     }
 
@@ -124,7 +127,7 @@ public class AndroidLoaderStore implements Store {
 
             @Override
             public void onLoadFinished(Loader<T> loader, T data) {
-                holder.valid = true;
+                holder.started = true;
                 holder.value = data;
             }
 

@@ -26,7 +26,7 @@ public interface Store {
     /**
      * Gets a value; returns the given value if not present.
      */
-    <T> T get(String key, T defaultValue);
+    <T> T get(String key, T fallback);
 
     /**
      * Gets a value; saves the result of the factory if not present.

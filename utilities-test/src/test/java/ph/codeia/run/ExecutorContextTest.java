@@ -63,7 +63,7 @@ public class ExecutorContextTest {
         Runner r = new ExecutorContext(EXEC);
         final CountDownLatch done = new CountDownLatch(3);
         assertNotEquals("worker", S.get());
-        Seq.of(r.run((Do.Execute<Void>) next -> {
+        Seq.of(r.wrap((Do.Execute<Void>) next -> {
             done.countDown();
             assertEquals("worker", S.get());
             next.got(null);
@@ -83,7 +83,7 @@ public class ExecutorContextTest {
         Runner r = new ExecutorContext(EXEC);
         final CountDownLatch done = new CountDownLatch(3);
         assertNotEquals("worker", S.get());
-        r.run(Seq.of(next -> {
+        r.wrap(Seq.of(next -> {
             assertEquals("worker", S.get());
             done.countDown();
             next.got(null);
@@ -111,7 +111,7 @@ public class ExecutorContextTest {
             assertEquals("caller", S.get());
             done.countDown();
             next.got(null);
-        }).pipe(r.run((value, next) -> {
+        }).pipe(r.wrap((value, next) -> {
             assertEquals("worker", S.get());
             done.countDown();
             next.got(null);

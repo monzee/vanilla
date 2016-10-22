@@ -14,12 +14,12 @@ public class PassThrough implements Runner {
     public static Runner RUNNER = new PassThrough();
 
     @Override
-    public <T> Do.Execute<T> run(Do.Execute<T> block) {
+    public <T> Do.Execute<T> wrap(Do.Execute<T> block) {
         return block;
     }
 
     @Override
-    public <T, U> Do.Continue<T, U> run(Do.Continue<T, U> block) {
+    public <T, U> Do.Continue<T, U> wrap(Do.Continue<T, U> block) {
         return block;
     }
 

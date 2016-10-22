@@ -8,7 +8,7 @@ import ph.codeia.values.Do;
 
 /**
  * Provides context to blocks. Doesn't actually run them, that's
- * {@link Seq#start() Seq's} job.
+ * {@link Seq#begin() Seq's} job.
  *
  * This interface is used mainly to run code in a specific thread. It is
  * possible to run the producing code from the consuming code in separate
@@ -22,15 +22,18 @@ public interface Runner {
     /**
      * Decorates a {@link Do.Execute} block
      */
-    <T> Do.Execute<T> run(Do.Execute<T> block);
+    <T> Do.Execute<T> wrap(Do.Execute<T> block);
 
     /**
      * Decorates a {@link Do.Continue} block
      */
-    <T, U> Do.Continue<T, U> run(Do.Continue<T, U> block);
+    <T, U> Do.Continue<T, U> wrap(Do.Continue<T, U> block);
 
     /**
-     * Decorates a {@link Do.Just} block
+     * Decorates a {@link Do.Just} block.
+     *
+     * Changed the name to differentiate from {@link #wrap(Do.Execute)} so
+     * that lambdas don't have to be explicitly cast.
      */
     <T> Do.Just<T> run(Do.Just<T> block);
 

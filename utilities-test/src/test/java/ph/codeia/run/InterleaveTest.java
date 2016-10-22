@@ -8,8 +8,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import ph.codeia.values.Do;
-
 import static org.junit.Assert.*;
 
 /**
@@ -50,7 +48,7 @@ public class InterleaveTest {
         Runner r = new Interleave(worker, main);
         final CountDownLatch done = new CountDownLatch(2);
         S.set("caller");
-        r.run((Do.Execute<Object>) next -> {
+        r.wrap(next -> {
             assertEquals("worker", S.get());
             done.countDown();
             next.got(null);
@@ -66,7 +64,7 @@ public class InterleaveTest {
         Runner r = new Interleave(worker, main);
         final CountDownLatch done = new CountDownLatch(3);
         S.set("caller");
-        Seq.of(r.run((Do.Execute<Object>) next -> {
+        Seq.of(r.wrap(next -> {
             assertEquals("worker", S.get());
             done.countDown();
             next.got(null);
@@ -90,7 +88,7 @@ public class InterleaveTest {
             assertEquals("caller", S.get());
             done.countDown();
             next.got(null);
-        }).pipe(r.run((value, next) -> {
+        }).pipe(r.wrap((value, next) -> {
             assertEquals("worker", S.get());
             done.countDown();
             next.got(null);
@@ -106,7 +104,7 @@ public class InterleaveTest {
         Runner r = new Interleave(worker, main);
         final CountDownLatch done = new CountDownLatch(3);
         S.set("caller");
-        r.run(Seq.of(next -> {
+        r.wrap(Seq.of(next -> {
             assertEquals("worker", S.get());
             done.countDown();
             next.got(null);

@@ -32,12 +32,12 @@ public class SimpleStore implements Store {
     }
 
     @Override
-    public <T> T get(String key, T defaultValue) {
+    public <T> T get(String key, T fallback) {
         if (items.containsKey(key)) {
             //noinspection unchecked
             return (T) items.get(key).get();
         }
-        return defaultValue;
+        return fallback;
     }
 
     @Override

@@ -23,6 +23,10 @@ public class Replay<T> implements Channel<T> {
         this.delegate = delegate;
     }
 
+    public Replay() {
+        this(new SimpleChannel<T>());
+    }
+
     @Override
     public void send(T message) {
         lastValue = new WeakReference<>(message);

@@ -29,8 +29,8 @@ public class Interleave implements Runner {
     }
 
     @Override
-    public <T> Do.Execute<T> run(final Do.Execute<T> block) {
-        return worker.run(new Do.Execute<T>() {
+    public <T> Do.Execute<T> wrap(final Do.Execute<T> block) {
+        return worker.wrap(new Do.Execute<T>() {
             @Override
             public void begin(Do.Just<T> next) {
                 block.begin(main.run(next));
@@ -39,8 +39,8 @@ public class Interleave implements Runner {
     }
 
     @Override
-    public <T, U> Do.Continue<T, U> run(final Do.Continue<T, U> block) {
-        return worker.run(new Do.Continue<T, U>() {
+    public <T, U> Do.Continue<T, U> wrap(final Do.Continue<T, U> block) {
+        return worker.wrap(new Do.Continue<T, U>() {
             @Override
             public void then(T value, Do.Just<U> next) {
                 block.then(value, main.run(next));

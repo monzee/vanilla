@@ -1,29 +1,43 @@
 package ph.codeia.run;
 
+import ph.codeia.meta.Experimental;
+
 /**
  * This file is a part of the vanilla project.
  */
 
+@Experimental
 public enum Control {
 
-    BRANCH, BREAK, CONTINUE;
+    JUMP, BREAK, CONTINUE;
 
-    private static final ThreadLocal<Control> CURRENT = new ThreadLocal<>();
+    private static final ThreadLocal<Control> FLAG = new ThreadLocal<>();
+    private static final ThreadLocal<String> LABEL = new ThreadLocal<>();
 
     public static Control status() {
-        return CURRENT.get();
+        return FLAG.get();
     }
 
     public static void clear() {
-        CURRENT.remove();
+        FLAG.remove();
+        LABEL.remove();
+    }
+
+    public static String target() {
+        return LABEL.get();
     }
 
     public void signal() {
-        CURRENT.set(this);
+        FLAG.set(this);
+    }
+
+    public void signal(String target) {
+        FLAG.set(this);
+        LABEL.set(target);
     }
 
     public boolean signalled() {
-        return this == CURRENT.get();
+        return this == FLAG.get();
     }
 
 }

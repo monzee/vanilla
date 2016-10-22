@@ -11,11 +11,11 @@ import ph.codeia.values.Wait;
 /**
  * Stores the values produced by a block in a {@link Store}.
  *
- * Blocks passed to {@link #named(String, Do.Continue)} and
- * {@link #named(String, Do.Execute)} may be executed at most once. They will
+ * Blocks passed to {@link #label(String, Do.Continue)} and
+ * {@link #label(String, Do.Execute)} may be executed at most once. They will
  * never be called if the key exists in the backing store.
  */
-public class Memoize implements NamedRunner {
+public class Memoize implements LabelledRunner {
 
     private final Runner delegate;
     private final Store store;
@@ -30,13 +30,13 @@ public class Memoize implements NamedRunner {
     }
 
     @Override
-    public <T> Do.Execute<T> run(Do.Execute<T> block) {
-        return delegate.run(block);
+    public <T> Do.Execute<T> wrap(Do.Execute<T> block) {
+        return delegate.wrap(block);
     }
 
     @Override
-    public <T, U> Do.Continue<T, U> run(Do.Continue<T, U> block) {
-        return delegate.run(block);
+    public <T, U> Do.Continue<T, U> wrap(Do.Continue<T, U> block) {
+        return delegate.wrap(block);
     }
 
     @Override
@@ -45,8 +45,8 @@ public class Memoize implements NamedRunner {
     }
 
     @Override
-    public <T> Do.Execute<T> named(final String key, final Do.Execute<T> block) {
-        return delegate.run(new Do.Execute<T>() {
+    public <T> Do.Execute<T> label(final String key, final Do.Execute<T> block) {
+        return delegate.wrap(new Do.Execute<T>() {
             @Override
             public void begin(Do.Just<T> next) {
                 next.got(store.hardGet(key, new Do.Make<T>() {
@@ -67,8 +67,8 @@ public class Memoize implements NamedRunner {
     }
 
     @Override
-    public <T, U> Do.Continue<T, U> named(final String key, final Do.Continue<T, U> block) {
-        return delegate.run(new Do.Continue<T, U>() {
+    public <T, U> Do.Continue<T, U> label(final String key, final Do.Continue<T, U> block) {
+        return delegate.wrap(new Do.Continue<T, U>() {
             @Override
             public void then(final T value, Do.Just<U> next) {
                 next.got(store.hardGet(key, new Do.Make<U>() {
