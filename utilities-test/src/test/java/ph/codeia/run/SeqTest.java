@@ -76,7 +76,7 @@ public class SeqTest {
             next.got("baz");
         }).<String> pipe((result, next) -> EXEC.execute(() -> {
             try {
-                Thread.sleep(50);
+                Thread.sleep(16);
                 next.got("BAR" + result);
             } catch (InterruptedException e) {
                 e.printStackTrace();

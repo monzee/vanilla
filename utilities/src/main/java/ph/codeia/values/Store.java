@@ -15,7 +15,8 @@ public interface Store {
     void put(String key, Object value);
 
     /**
-     * Saves a value; does not run the factory nor overwrite an existing key.
+     * Saves a value; does not run the factory nor overwrite when the
+     * key exists.
      *
      * @param lazyValue Will be run immediately in the same thread as the
      *                  caller if needed.

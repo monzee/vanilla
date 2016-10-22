@@ -17,7 +17,7 @@ import static org.junit.Assert.*;
  * This file is a part of the vanilla project.
  */
 
-public class ExecutorRunnerTest {
+public class ExecutorContextTest {
 
     private static final ExecutorService EXEC = Executors.newSingleThreadExecutor();
     private static final ThreadLocal<String> S = new ThreadLocal<>();
@@ -39,7 +39,7 @@ public class ExecutorRunnerTest {
 
     @Test
     public void straw_man() throws InterruptedException {
-        Runner r = new ExecutorRunner(EXEC);
+        Runner r = new ExecutorContext(EXEC);
         AtomicInteger counter = new AtomicInteger(0);
         S.set("caller");
         Seq.of(next -> {
@@ -60,7 +60,7 @@ public class ExecutorRunnerTest {
 
     @Test(timeout = 1000)
     public void wrapping_the_first_step_makes_the_whole_seq_run_in_the_same_context() throws InterruptedException {
-        Runner r = new ExecutorRunner(EXEC);
+        Runner r = new ExecutorContext(EXEC);
         final CountDownLatch done = new CountDownLatch(3);
         assertNotEquals("worker", S.get());
         Seq.of(r.run((Do.Execute<Void>) next -> {
@@ -80,7 +80,7 @@ public class ExecutorRunnerTest {
 
     @Test(timeout = 1000)
     public void wrapping_the_whole_seq_does_the_same() throws InterruptedException {
-        Runner r = new ExecutorRunner(EXEC);
+        Runner r = new ExecutorContext(EXEC);
         final CountDownLatch done = new CountDownLatch(3);
         assertNotEquals("worker", S.get());
         r.run(Seq.of(next -> {
@@ -100,7 +100,7 @@ public class ExecutorRunnerTest {
 
     @Test(timeout = 1000)
     public void wrapping_mid_sequence_does_not_affect_upstream_steps() throws InterruptedException {
-        Runner r = new ExecutorRunner(EXEC);
+        Runner r = new ExecutorContext(EXEC);
         final CountDownLatch done = new CountDownLatch(4);
         S.set("caller");
         Seq.of(next -> {

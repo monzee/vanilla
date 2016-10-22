@@ -11,11 +11,11 @@ import ph.codeia.values.Do;
 /**
  * Runs a block in a runnable passed to an {@link Executor}.
  */
-public class ExecutorRunner implements Runner {
+public class ExecutorContext implements Runner {
 
     private final Executor context;
 
-    public ExecutorRunner(Executor context) {
+    public ExecutorContext(Executor context) {
         this.context = context;
     }
 

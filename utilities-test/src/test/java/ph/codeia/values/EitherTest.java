@@ -7,6 +7,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.Assert.*;
 
@@ -83,47 +84,58 @@ public class EitherTest {
         }
     }
 
-    @Test
+    @Test(timeout = 1000)
     public void get_blocks_until_value_is_set() throws Throwable {
-        final Either<?, String> either = new Either<>();
-        final Either<?, String> mirror = new Either<>();
-        final CountDownLatch signal = new CountDownLatch(1);
+        final Either<?, Void> value = new Either<>();
+        final CountDownLatch checkpoint = new CountDownLatch(1);
+        final CountDownLatch done = new CountDownLatch(1);
+        final AtomicBoolean flag = new AtomicBoolean(false);
+
         EXEC.execute(() -> {
+            checkpoint.countDown();
             try {
-                mirror.pass(either.get());
+                value.get();
             } catch (Throwable throwable) {
                 throwable.printStackTrace();
                 fail("interrupted");
-            } finally {
-                signal.countDown();
             }
+            flag.set(true);
+            done.countDown();
         });
-        assertFalse(signal.await(50, TimeUnit.MILLISECONDS));
-        either.pass("foo");
-        assertTrue(signal.await(50, TimeUnit.MILLISECONDS));
-        assertEquals("foo", mirror.get());
+
+        checkpoint.await();
+        Thread.sleep(16);
+        assertFalse(flag.get());
+
+        value.pass(null);
+        done.await();
     }
 
-    @Test(expected = RuntimeException.class)
+    @Test(timeout = 1000, expected = RuntimeException.class)
     public void get_blocks_until_the_error_is_set() throws InterruptedException {
-        final Either<RuntimeException, ?> either = new Either<>();
+        final Either<RuntimeException, ?> value = new Either<>();
         final Either<RuntimeException, ?> mirror = new Either<>();
-        final CountDownLatch signal = new CountDownLatch(1);
+        final CountDownLatch checkpoint = new CountDownLatch(1);
+        final CountDownLatch done = new CountDownLatch(1);
+
         EXEC.execute(() -> {
+            checkpoint.countDown();
             try {
-                either.get();
+                value.get();
+                fail("should be unreachable");
             } catch (RuntimeException e) {
                 mirror.fail(e);
+                done.countDown();
             } catch (InterruptedException e) {
                 e.printStackTrace();
                 fail("interrupted");
-            } finally {
-                signal.countDown();
             }
         });
-        assertFalse(signal.await(50, TimeUnit.MILLISECONDS));
-        either.fail(new RuntimeException("asdfasdf"));
-        assertTrue(signal.await(50, TimeUnit.MILLISECONDS));
+
+        checkpoint.await();
+        Thread.sleep(16);
+        value.fail(new RuntimeException());
+        done.await();
         mirror.get();
     }
 

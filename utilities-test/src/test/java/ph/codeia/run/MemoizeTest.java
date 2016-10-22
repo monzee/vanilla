@@ -29,8 +29,8 @@ public class MemoizeTest {
     private static final ExecutorService BG = Executors.newSingleThreadExecutor();
     private static final ExecutorService FG = Executors.newSingleThreadExecutor();
     private static final Runner ASYNC = new Interleave(
-            new ExecutorRunner(BG),
-            new ExecutorRunner(FG)
+            new ExecutorContext(BG),
+            new ExecutorContext(FG)
     );
 
     @BeforeClass
@@ -62,11 +62,11 @@ public class MemoizeTest {
 
     @Test
     public void straw_man() {
-        CachingRunner r = new Memoize(cache);
+        NamedRunner r = new Memoize(cache);
         assertNull(cache.get("key", null));
         final AtomicBoolean called = new AtomicBoolean(false);
 
-        r.once("key", (Do.Execute<String>) next -> {
+        r.named("key", (Do.Execute<String>) next -> {
             next.got("FOO");
             called.set(true);
         }).begin(value -> {
@@ -78,7 +78,7 @@ public class MemoizeTest {
 
         called.set(false);
         final AtomicBoolean done = new AtomicBoolean(false);
-        r.once("key", (Do.Execute<String>) next -> {
+        r.named("key", (Do.Execute<String>) next -> {
             next.got("BAR");
             called.set(true);
         }).begin(value -> {
@@ -93,8 +93,8 @@ public class MemoizeTest {
 
     @Test
     public void memoize_mid_sequence_calls_upstream_but_ignores_the_passed_value() {
-        CachingRunner r = new Memoize(cache);
-        Do.Continue<String, String> mid = r.once("key", (value, next) -> {
+        NamedRunner r = new Memoize(cache);
+        Do.Continue<String, String> mid = r.named("key", (value, next) -> {
             next.got(value + "bar");
         });
 
@@ -119,9 +119,9 @@ public class MemoizeTest {
 
     @Test
     public void wrapped_block_never_called_more_than_once() {
-        CachingRunner r = new Memoize(cache);
+        NamedRunner r = new Memoize(cache);
         final AtomicInteger count = new AtomicInteger(0);
-        Do.Continue<String, String> mid = r.once("key", (value, next) -> {
+        Do.Continue<String, String> mid = r.named("key", (value, next) -> {
             count.incrementAndGet();
             next.got(value + "bar");
         });
@@ -137,12 +137,12 @@ public class MemoizeTest {
 
     @Test
     public void block_is_never_called_if_the_cache_already_has_a_stored_value() {
-        CachingRunner r = new Memoize(cache);
+        NamedRunner r = new Memoize(cache);
         cache.put("key", "NOPE");
 
         AtomicBoolean called = new AtomicBoolean(false);
         AtomicReference<String> result = new AtomicReference<>();
-        r.once("key", (Do.Just<String> next) -> {
+        r.named("key", (Do.Just<String> next) -> {
             called.set(true);
             next.got("yes");
         }).begin(result::set);
@@ -153,17 +153,17 @@ public class MemoizeTest {
 
     @Test
     public void block_with_same_key_is_never_called() {
-        CachingRunner r = new Memoize(cache);
+        NamedRunner r = new Memoize(cache);
         final AtomicBoolean called = new AtomicBoolean(false);
 
         AtomicReference<String> result = new AtomicReference<>();
         Seq.<String> of(next -> {
             next.got("foo");
-        }).<String> pipe(r.once("key", (value, next) -> {
+        }).<String> pipe(r.named("key", (value, next) -> {
             next.got(value + "bar");
         })).<String> pipe((value, next) -> {
             next.got(value + "baz");
-        }).<String> pipe(r.once("key", (value, next) -> {
+        }).<String> pipe(r.named("key", (value, next) -> {
             called.set(true);
             next.got(value + "quux");
         })).begin(result::set);
@@ -174,13 +174,13 @@ public class MemoizeTest {
 
     @Test(timeout = 1000)
     public void async_delegate_does_not_deadlock() throws InterruptedException {
-        CachingRunner r = new Memoize(ASYNC, cache);
+        NamedRunner r = new Memoize(ASYNC, cache);
         final CountDownLatch done = new CountDownLatch(1);
         final AtomicReference<String> result = new AtomicReference<>();
 
         FG.execute(() -> {
             assertEquals("main", S.get());
-            r.once("K", (Do.Execute<String>) next -> {
+            r.named("K", (Do.Execute<String>) next -> {
                 assertEquals("worker", S.get());
                 try {
                     Thread.sleep(16);

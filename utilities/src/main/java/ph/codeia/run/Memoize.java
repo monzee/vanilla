@@ -11,11 +11,11 @@ import ph.codeia.values.Wait;
 /**
  * Stores the values produced by a block in a {@link Store}.
  *
- * Blocks passed to {@link #once(String, Do.Continue)} and
- * {@link #once(String, Do.Execute)} may be executed at most once. They will
+ * Blocks passed to {@link #named(String, Do.Continue)} and
+ * {@link #named(String, Do.Execute)} may be executed at most once. They will
  * never be called if the key exists in the backing store.
  */
-public class Memoize implements CachingRunner {
+public class Memoize implements NamedRunner {
 
     private final Runner delegate;
     private final Store store;
@@ -45,7 +45,7 @@ public class Memoize implements CachingRunner {
     }
 
     @Override
-    public <T> Do.Execute<T> once(final String key, final Do.Execute<T> block) {
+    public <T> Do.Execute<T> named(final String key, final Do.Execute<T> block) {
         return delegate.run(new Do.Execute<T>() {
             @Override
             public void begin(Do.Just<T> next) {
@@ -67,7 +67,7 @@ public class Memoize implements CachingRunner {
     }
 
     @Override
-    public <T, U> Do.Continue<T, U> once(final String key, final Do.Continue<T, U> block) {
+    public <T, U> Do.Continue<T, U> named(final String key, final Do.Continue<T, U> block) {
         return delegate.run(new Do.Continue<T, U>() {
             @Override
             public void then(final T value, Do.Just<U> next) {

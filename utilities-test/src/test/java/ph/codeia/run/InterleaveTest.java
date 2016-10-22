@@ -42,8 +42,8 @@ public class InterleaveTest {
         FG.shutdown();
     }
 
-    private final Runner worker = new ExecutorRunner(BG);
-    private final Runner main = new ExecutorRunner(FG);
+    private final Runner worker = new ExecutorContext(BG);
+    private final Runner main = new ExecutorContext(FG);
 
     @Test(timeout = 1000)
     public void straw_man() throws InterruptedException {

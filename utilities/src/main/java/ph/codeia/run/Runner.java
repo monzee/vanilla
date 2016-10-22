@@ -7,7 +7,8 @@ import ph.codeia.values.Do;
  */
 
 /**
- * Provides context to blocks that produce and consume values.
+ * Provides context to blocks. Doesn't actually run them, that's
+ * {@link Seq#start() Seq's} job.
  *
  * This interface is used mainly to run code in a specific thread. It is
  * possible to run the producing code from the consuming code in separate
@@ -18,10 +19,19 @@ import ph.codeia.values.Do;
  */
 public interface Runner {
 
+    /**
+     * Decorates a {@link Do.Execute} block
+     */
     <T> Do.Execute<T> run(Do.Execute<T> block);
 
+    /**
+     * Decorates a {@link Do.Continue} block
+     */
     <T, U> Do.Continue<T, U> run(Do.Continue<T, U> block);
 
+    /**
+     * Decorates a {@link Do.Just} block
+     */
     <T> Do.Just<T> run(Do.Just<T> block);
 
 }

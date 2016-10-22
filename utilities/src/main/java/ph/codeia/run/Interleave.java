@@ -8,6 +8,8 @@ import ph.codeia.values.Do;
 
 /**
  * Runs the producer and the consumer parts of a block in separate runners.
+ *
+ * Producers are run in the worker context, consumers in the main.
  */
 public class Interleave implements Runner {
 
@@ -17,6 +19,13 @@ public class Interleave implements Runner {
     public Interleave(Runner worker, Runner main) {
         this.worker = worker;
         this.main = main;
+    }
+
+    /**
+     * Returns a new async runner with the contexts flipped.
+     */
+    public Interleave inverse() {
+        return new Interleave(main, worker);
     }
 
     @Override

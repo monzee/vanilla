@@ -19,16 +19,16 @@ import ph.codeia.values.Store;
  *
  * Values stored here remain valid until the user explicitly leaves the
  * activity/fragment where the manager is scoped or until the process
- * is killed. I.e. they survive configuration changes like orientation change.
+ * is killed. I.e. they survive configuration changes like device rotation.
  */
 public class AndroidLoaderStore implements Store {
 
     private static class Holder<T> {
-        boolean present = false;
+        boolean valid = false;
         T value;
 
         T ensureStarted() {
-            if (!present) {
+            if (!valid) {
                 throw new IllegalStateException(
                         "Don't use this store before Activity#onStart()."
                 );
@@ -71,36 +71,19 @@ public class AndroidLoaderStore implements Store {
     @Override
     public <T> T get(String key, T defaultValue) {
         int id = id(key);
-        if (!exists(id)) {
-            return defaultValue;
+        if (exists(id)) {
+            return get(id, null);
         }
-        return get(id);
+        return defaultValue;
     }
 
     @Override
     public <T> T hardGet(String key, final Do.Make<T> lazyValue) {
         int id = id(key);
         if (exists(id)) {
-            return get(id);
+            return get(id, null);
         }
-
-        final Holder<T> holder = new Holder<>();
-        manager.initLoader(id, null, new LoaderManager.LoaderCallbacks<T>() {
-            @Override
-            public Loader<T> onCreateLoader(int id, Bundle args) {
-                return loader(lazyValue.get());
-            }
-
-            @Override
-            public void onLoadFinished(Loader<T> loader, T data) {
-                holder.present = true;
-                holder.value = data;
-            }
-
-            @Override
-            public void onLoaderReset(Loader<T> loader) {}
-        });
-        return holder.ensureStarted();
+        return get(id, lazyValue.get());
     }
 
     private static int id(String key) {
@@ -131,17 +114,17 @@ public class AndroidLoaderStore implements Store {
         });
     }
 
-    private <T> T get(int id) {
+    private <T> T get(int id, final T value) {
         final Holder<T> holder = new Holder<>();
         manager.initLoader(id, null, new LoaderManager.LoaderCallbacks<T>() {
             @Override
             public Loader<T> onCreateLoader(int id, Bundle args) {
-                return null;
+                return loader(value);
             }
 
             @Override
             public void onLoadFinished(Loader<T> loader, T data) {
-                holder.present = true;
+                holder.valid = true;
                 holder.value = data;
             }
 
