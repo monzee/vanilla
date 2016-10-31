@@ -4,8 +4,6 @@ package ph.codeia.values;
  * This file is a part of the vanilla project.
  */
 
-import ph.codeia.run.Runner;
-
 /**
  * A bunch of single-method interfaces for "functional" programming.
  */

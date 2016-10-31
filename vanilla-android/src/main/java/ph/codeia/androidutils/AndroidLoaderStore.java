@@ -93,7 +93,7 @@ public class AndroidLoaderStore implements Store {
         return key.hashCode();
     }
 
-    private <T> Loader<T> loader(final T value) {
+    private static <T> Loader<T> loader(Context context, final T value) {
         return new Loader<T>(context) {
             @Override
             protected void onStartLoading() {
@@ -106,7 +106,7 @@ public class AndroidLoaderStore implements Store {
         manager.initLoader(id, null, new LoaderManager.LoaderCallbacks<Object>() {
             @Override
             public Loader<Object> onCreateLoader(int id, Bundle args) {
-                return loader(value);
+                return loader(context, value);
             }
 
             @Override
@@ -122,7 +122,7 @@ public class AndroidLoaderStore implements Store {
         manager.initLoader(id, null, new LoaderManager.LoaderCallbacks<T>() {
             @Override
             public Loader<T> onCreateLoader(int id, Bundle args) {
-                return loader(value);
+                return loader(context, value);
             }
 
             @Override

@@ -11,7 +11,7 @@ import ph.codeia.values.Do;
  * {@link Seq#begin() Seq's} job.
  *
  * This interface is used mainly to run code in a specific thread. It is
- * possible to run the producing code from the consuming code in separate
+ * possible to run the producing code and the consuming code in separate
  * threads even in the same block, like in {@link Interleave}. It is also
  * possible to memoize the values produced by a block. There might be other
  * applications I haven't thought of yet. Maybe a periodic runner, although

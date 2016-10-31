@@ -180,7 +180,7 @@ public class MemoizeTest {
 
         FG.execute(() -> {
             assertEquals("main", S.get());
-            r.label("K", (Do.Execute<String>) next -> {
+            Seq.<String> of(r.label("K", next -> {
                 assertEquals("worker", S.get());
                 try {
                     Thread.sleep(16);
@@ -189,7 +189,7 @@ public class MemoizeTest {
                     fail("interrupted");
                 }
                 next.got("sadflkj zxcvlkj asdf");
-            }).begin(s -> {
+            })).begin(s -> {
                 assertEquals("main", S.get());
                 result.set(s);
                 done.countDown();
