@@ -1,4 +1,5 @@
 apply plugin: 'com.android.library'
+apply plugin: 'maven-publish'
 
 android {
     compileSdkVersion 24
@@ -19,11 +20,76 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+
+}
+
+android.libraryVariants.all { variant ->
+    if (!"release".equals(variant.buildType.name)) {
+        return
+    }
+
+    task("${variant.name}Javadoc", type: Javadoc, dependsOn: "assemble${variant.name.capitalize()}") {
+        source = variant.javaCompile.source
+
+        // First add all of your dependencies to the classpath, then add the android jars
+        classpath += files(variant.javaCompile.classpath.files)
+        classpath += files(android.getBootClasspath())
+
+        options {
+            links '../../../../vanilla-core/build/docs/javadoc'
+            linksOffline('https://developer.android.com/reference', 'http://docs.oracle.com/javase/7/docs/api')
+        }
+
+        // We're excluding these generated files
+        exclude '**/BuildConfig.java'
+        exclude '**/R.java'
+    }
+
+    task("${variant.name}JavadocJar", type: Jar, dependsOn: "${variant.name}Javadoc") {
+        classifier = 'javadoc'
+        from tasks["${variant.name}Javadoc"].destinationDir
+    }
+
+    publishing.publications.androidRelease.artifact(tasks["${variant.name}JavadocJar"])
+}
+
+task sourceJar(type: Jar) {
+    from android.sourceSets.main.java.srcDirs
+    classifier 'sources'
+}
+
+publishing {
+    repositories {
+        maven { url "file:///tmp" }
+    }
+
+    publications {
+        androidRelease(MavenPublication) {
+            groupId 'ph.codeia.vanilla'
+            artifactId 'vanilla-android'
+            version LIBRARY_VERSION
+            artifact "$buildDir/outputs/aar/vanilla-android-release.aar"
+            artifact sourceJar
+            pom.withXml {
+                asNode().appendNode('dependencies').with { node ->
+                    configurations.compile.allDependencies.each { dep ->
+                        if ([dep.group, dep.name, dep.version].all { it != null }) {
+                            node.appendNode('dependency').with {
+                                it.appendNode('groupId', dep.group)
+                                it.appendNode('artifactId', dep.name)
+                                it.appendNode('version', dep.version)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 dependencies {
     compile fileTree(dir: 'libs', include: ['*.jar'])
-    compile project(path: ':vanilla-core')
+    compile "ph.codeia.vanilla:vanilla-core:$LIBRARY_VERSION"
     compile 'com.android.support:appcompat-v7:24.2.1'
     testCompile 'junit:junit:4.12'
 }

@@ -9,6 +9,9 @@ import java.lang.annotation.Target;
  * This file is a part of the vanilla project.
  */
 
+/**
+ * A reminder to the author to write tests for this element.
+ */
 @Target({ElementType.TYPE, ElementType.METHOD})
 @Retention(RetentionPolicy.SOURCE)
 public @interface Untested {

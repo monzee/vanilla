@@ -1,4 +1,32 @@
 apply plugin: 'java'
+apply plugin: 'maven-publish'
+
+task sourceJar(type: Jar, dependsOn: 'classes') {
+    from sourceSets.main.allSource
+    classifier 'sources'
+}
+
+task docJar(type: Jar, dependsOn: 'javadoc') {
+    from javadoc.destinationDir
+    classifier 'javadoc'
+}
+
+publishing {
+    repositories {
+        maven { url "file:///tmp" }
+    }
+
+    publications {
+        core(MavenPublication) {
+            groupId 'ph.codeia.vanilla'
+            artifactId 'vanilla-core'
+            version LIBRARY_VERSION
+            from components.java
+            artifact sourceJar
+            artifact docJar
+        }
+    }
+}
 
 dependencies {
     compile fileTree(dir: 'libs', include: ['*.jar'])

@@ -81,7 +81,7 @@ public interface Do {
     }
 
     /**
-     * An alias to {@link Just Just<Try<T>>}.
+     * An alias to {@link Just Just&lt;Try&lt;T>>}.
      */
     interface Maybe<T> extends Just<Try<T>> {}
 

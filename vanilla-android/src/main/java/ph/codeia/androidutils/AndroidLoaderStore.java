@@ -86,6 +86,10 @@ public class AndroidLoaderStore implements Store {
         return get(id, lazyValue.get());
     }
 
+    public <T> T hardGet(String key) {
+        return hardGet(key, Presence.<T>expected());
+    }
+
     /**
      * Override this to change the id generation strategy.
      */

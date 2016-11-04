@@ -9,8 +9,14 @@ import java.lang.annotation.Target;
  * This file is a part of the vanilla project.
  */
 
+/**
+ * A demonstration of how an experimental interface might be used.
+ */
 @Target({ElementType.TYPE, ElementType.METHOD})
 @Retention(RetentionPolicy.SOURCE)
 public @interface StrawMan {
+    /**
+     * @return a description of the use case.
+     */
     String value() default "";
 }

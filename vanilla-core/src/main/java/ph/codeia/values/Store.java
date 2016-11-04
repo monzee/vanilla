@@ -9,6 +9,24 @@ package ph.codeia.values;
  */
 public interface Store {
 
+    final class Presence {
+
+        private Presence() {}
+
+        public static <T> Do.Make<T> expected() {
+            return new Do.Make<T>() {
+                @Override
+                public T get() {
+                    throw new AssertionError(
+                            "Expected value not present in store. " +
+                            "Ensure that your put and get calls are in order."
+                    );
+                }
+            };
+        }
+
+    }
+
     /**
      * Saves a value; overwrites if key exists.
      */
