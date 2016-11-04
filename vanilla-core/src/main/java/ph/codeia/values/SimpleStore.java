@@ -53,4 +53,9 @@ public class SimpleStore implements Store {
         }
     }
 
+    @Override
+    public void clear(String key) {
+        items.remove(key);
+    }
+
 }

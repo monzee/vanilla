@@ -29,6 +29,9 @@ public interface Store {
 
     /**
      * Saves a value; overwrites if key exists.
+     *
+     * @param key The key to set.
+     * @param value The value.
      */
     void put(String key, Object value);
 
@@ -36,6 +39,7 @@ public interface Store {
      * Saves a value; does not run the factory nor overwrite when the
      * key exists.
      *
+     * @param key The key to set.
      * @param lazyValue Will be run immediately in the same thread as the
      *                  caller if needed.
      */
@@ -43,15 +47,27 @@ public interface Store {
 
     /**
      * Gets a value; returns the given value if not present.
+     *
+     * @param key The key to get.
+     * @param fallback Default value.
+     * @return The stored value or {@code fallback} if absent.
      */
     <T> T get(String key, T fallback);
 
     /**
      * Gets a value; saves the result of the factory if not present.
      *
+     * @param key The key to get.
      * @param lazyValue Will not be run if the key exists. Will be run
      *                  immediately in the caller thread otherwise.
+     * @return The stored value or the result of calling {@code lazyValue.get()}.
      */
     <T> T hardGet(String key, Do.Make<T> lazyValue);
 
+    /**
+     * Removes a value.
+     *
+     * @param key The key to remove.
+     */
+    void clear(String key);
 }

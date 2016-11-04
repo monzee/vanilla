@@ -1,6 +1,6 @@
 package ph.codeia.signal;
 
-import java.lang.ref.WeakReference;
+import java.lang.ref.SoftReference;
 
 import ph.codeia.values.Do;
 
@@ -17,7 +17,7 @@ import ph.codeia.values.Do;
 public class Replay<T> implements Channel<T> {
 
     private final Channel<T> delegate;
-    private WeakReference<T> lastValue;
+    private SoftReference<T> lastValue;
 
     public Replay(Channel<T> delegate) {
         this.delegate = delegate;
@@ -29,7 +29,7 @@ public class Replay<T> implements Channel<T> {
 
     @Override
     public void send(T message) {
-        lastValue = new WeakReference<>(message);
+        lastValue = new SoftReference<>(message);
         delegate.send(message);
     }
 

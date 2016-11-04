@@ -86,6 +86,11 @@ public class AndroidLoaderStore implements Store {
         return get(id, lazyValue.get());
     }
 
+    @Override
+    public void clear(String key) {
+        manager.destroyLoader(id(key));
+    }
+
     public <T> T hardGet(String key) {
         return hardGet(key, Presence.<T>expected());
     }

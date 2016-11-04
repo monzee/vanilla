@@ -6,7 +6,7 @@ apply plugin: 'java'
 
 dependencies {
     compile fileTree(dir: 'libs', include: ['*.jar'])
-    compile 'ph.codeia.vanilla:vanilla-core:0.1.1'
+    compile project(path: ':vanilla-core')
     testCompile 'junit:junit:4.12'
 }
 
