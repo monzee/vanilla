@@ -19,7 +19,7 @@ An implementation of the observer pattern. First, create a channel.
 private final Channel<String> status = new AndroidChannel<>();
 ~~~
 
-Attach a listener. Save the `Link` reference so that it can be detached later
+Attach a listener using `#link(T -> ())`. Save the `Link` reference so that it can be detached later
 if needed.
 
 ~~~java
@@ -43,7 +43,7 @@ private Channel.Link link;
 }
 ~~~
 
-The listeners will be called in the UI thread when `Channel#send(T)` is called.
+The listeners will be called in the UI thread when `#send(T)` is called.
 
 ~~~java
 // in a button listener somewhere
@@ -84,7 +84,7 @@ private Channel<String> onChildEvent;
 ~~~
 
 The fragment and activity can share the same store backend by scoping the store to the
-host activity and using the same key:
+host activity:
 
 ~~~java
 // fragment class
@@ -101,6 +101,7 @@ private Channel<String> toActivity;
   toActivity = cache.hardGet(TheActivity.CHANNEL_KEY, AndroidChannel::new);
 }
 
+// some event will eventually call this method
 private void somethingHappened() {
   toActivity.send("what's going on");
 }
@@ -131,7 +132,10 @@ AndroidRunner.ASYNC_POOL.get().<String>wrap(next -> {
 });
 ~~~
 
-TODO: other use cases
+It's basically a more abstract `AsyncTask`. I use its base interface in my
+presenters/use cases and pass synchronous runners in my tests. It is possible to
+do some interesting things, like joining parallel calls, memoizing blocks, and
+even jumping to labelled blocks.
 
 ## Installation
 
@@ -144,7 +148,17 @@ repositories {
 
 dependencies {
     // ...
-    compile 'ph.codeia.vanilla:vanilla-android:0.2.0'
+    compile 'ph.codeia.vanilla:vanilla-android:$LATEST_VERSION'
+}
+~~~
+
+(Scroll up to the beginning of this document to see the latest version number.)
+
+Retrolambda is highly recommended.
+
+~~~groovy
+plugins {
+    id 'me.tatarka.retrolambda' version '3.2.5'
 }
 ~~~
 
