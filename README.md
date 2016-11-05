@@ -8,7 +8,7 @@ them useful too.
 ## What?
 
 The android library at the moment contains 3 utilitiy classes. All of these
-implement generic, non-android dependent interfaces that might be used to
+implement generic, android platform-free interfaces that might be used to
 abstract concrete android code into junit-testable bits.
 
 ### AndroidChannel
@@ -50,17 +50,18 @@ The listeners will be called in the UI thread when `Channel#send(T)` is called.
 status.send("Button was clicked.");
 ~~~
 
-This is more useful when the listeners and the message sender are in different
+This becomes a lot more useful when the message sender and listeners are in different
 places. E.g. the listener is in an activity and the child fragments send events
 to it. The next component makes this possible.
 
-### AndroidLoderStore
+### AndroidLoaderStore
 
 A cache implementation that is backed by a `LoaderManager` and dynamically
-created synchronous `Loader`s and `LoaderManager.LoaderCallback`s. Objects
-stored here will survive configuration changes.
+created pairs of synchronous `Loader`s and `LoaderManager.LoaderCallback`s. Objects
+stored here will survive configuration changes with no extra effort.
 
 ~~~java
+public static final String CHANNEL_KEY = "from-child-to-activity";
 private Channel<String> onChildEvent;
 
 @Override protected void onResume() {
@@ -70,7 +71,7 @@ private Channel<String> onChildEvent;
 
   // hardGet() initializes the stored value if it's not found. Later calls to
   // get() and hardGet() will return the same instance returned by the factory
-  onChildEvent = cache.hardGet("from-child-to-activity", AndroidChannel::new);
+  onChildEvent = cache.hardGet(CHANNEL_KEY, AndroidChannel::new);
   onChildEvent.link(s -> Log.d(TAG, s));
 }
 
@@ -82,7 +83,7 @@ private Channel<String> onChildEvent;
 // fragment launch code somewhere
 ~~~
 
-The fragment and activity can share the same store by scoping the store to the
+The fragment and activity can share the same store backend by scoping the store to the
 host activity and using the same key:
 
 ~~~java
@@ -92,11 +93,12 @@ private Channel<String> toActivity;
 @Override protected void onResume() {
   // ...
   Store cache = new AndroidLoaderStore(getActivity());
-  // It can be hard to predict sometimes if this one or the activity method will
-  // be called first. By calling the cache in the exact same way, it is
-  // guaranteed that the activity and fragment will receive the same object
-  // regardless of the order they were called.
-  toActivity = cache.hardGet("from-child-to-activity", AndroidChannel::new);
+
+  // It can be hard to tell sometimes if this or the activity method will
+  // be called first. By calling the cache in the exact same way in both places,
+  // it doesn't matter which one was called first. They are guaranteed to
+  // receive the same instance.
+  toActivity = cache.hardGet(TheActivity.CHANNEL_KEY, AndroidChannel::new);
 }
 
 private void somethingHappened() {
@@ -106,24 +108,25 @@ private void somethingHappened() {
 
 ### AndroidRunner
 
-Somewhat like an `Executor` but runs functions that take values rather than
+Somewhat like an `Executor` but runs functions that take and return values rather than
 plain `Runnable`s and `Callable`s. `AndroidChannel` uses `AndroidRunner.UI` to
-run the listeners in a main looper handler. It also offers two lazy static async
+run the listeners in a main looper handler. It also offers additional lazy static async
 runners that calls a function in a background thread and executes the
 continuation in the UI thread.
 
 ~~~java
-// uses AsyncTask's static thread pool executor. the other async runner is
-// called AndroidRunner.ASYNC_SERIAL and enqueues the background tasks in one
-// thread.
-// this is a Lazy<T> object. It will only be created once. Later calls will
-// return the same instance.
+// - This uses AsyncTask's static thread pool executor. The other async runner is
+//   called AndroidRunner.ASYNC_SERIAL and enqueues the background tasks in one
+//   thread.
+// - This is a Lazy<T> object. It will only be created once. Later calls will
+//   return the same instance. Same with ASYNC_SERIAL.
 AndroidRunner.ASYNC_POOL.get().<String>wrap(next -> {
-  // this function is called in the background. feel free to block the thread.
+  // this function will be called in the background. feel free to block the thread.
   String result = longRunningTask();
+  // uses CPS. Do not return the result, call the continuation with it.
   next.got(result);
 }).begin(result -> {
-  // this is called in the UI thread
+  // this will be called in the UI thread
   view.show(result);
 });
 ~~~
