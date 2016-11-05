@@ -9,7 +9,7 @@ android {
         minSdkVersion 16
         targetSdkVersion 25
         versionCode 1
-        versionName "1.0"
+        versionName "v$LIBRARY_VERSION"
 
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
@@ -50,7 +50,7 @@ android.libraryVariants.all { variant ->
         from tasks["${variant.name}Javadoc"].destinationDir
     }
 
-    publishing.publications.androidRelease.artifact(tasks["${variant.name}JavadocJar"])
+    publishing.publications.release.artifact(tasks["${variant.name}JavadocJar"])
 }
 
 task sourceJar(type: Jar) {
@@ -60,26 +60,32 @@ task sourceJar(type: Jar) {
 
 publishing {
     repositories {
-        maven { url "file:///tmp" }
+        maven {
+            name "tmp"
+            url "file:///tmp"
+        }
     }
 
     publications {
-        androidRelease(MavenPublication) {
+        release(MavenPublication) {
             groupId 'ph.codeia.vanilla'
             artifactId 'vanilla-android'
             version LIBRARY_VERSION
+
             artifact "$buildDir/outputs/aar/vanilla-android-release.aar"
             artifact sourceJar
             pom.withXml {
-                asNode().appendNode('dependencies').with { node ->
-                    configurations.compile.allDependencies.each { dep ->
-                        if ([dep.group, dep.name, dep.version].all { it != null }) {
-                            node.appendNode('dependency').with {
-                                it.appendNode('groupId', dep.group)
-                                it.appendNode('artifactId', dep.name)
-                                it.appendNode('version', dep.version)
-                            }
-                        }
+                def node = asNode().appendNode('dependencies')
+                def core = node.appendNode('dependency')
+                core.appendNode('groupId', 'ph.codeia.vanilla')
+                core.appendNode('artifactId', 'vanilla-core')
+                core.appendNode('version', LIBRARY_VERSION)
+                configurations.compile.allDependencies.each { dep ->
+                    if (dep instanceof ExternalDependency) {
+                        def n = node.appendNode('dependency')
+                        n.appendNode('groupId', dep.group)
+                        n.appendNode('artifactId', dep.name)
+                        n.appendNode('version', dep.version)
                     }
                 }
             }
@@ -89,7 +95,7 @@ publishing {
 
 dependencies {
     compile fileTree(dir: 'libs', include: ['*.jar'])
-    compile "ph.codeia.vanilla:vanilla-core:$LIBRARY_VERSION"
+    compile project(':vanilla-core')
     provided 'com.android.support:appcompat-v7:25.0.0'
     testCompile 'junit:junit:4.12'
 }

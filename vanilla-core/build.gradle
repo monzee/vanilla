@@ -13,7 +13,10 @@ task docJar(type: Jar, dependsOn: 'javadoc') {
 
 publishing {
     repositories {
-        maven { url "file:///tmp" }
+        maven {
+            name 'tmp'
+            url 'file:///tmp'
+        }
     }
 
     publications {
