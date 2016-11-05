@@ -32,6 +32,8 @@ public class Seq<T, U> implements Do.Execute<U> {
      * Starts a computation.
      *
      * @param block An action that takes a continuation.
+     * @param <T> The type of the value expected by the continuation.
+     * @return An executable, extendable sequence.
      */
     public static <T> Seq<?, T> of(final Do.Execute<T> block) {
         return new Seq<>(NIL, new Do.Continue<Void, T>() {
@@ -40,6 +42,22 @@ public class Seq<T, U> implements Do.Execute<U> {
                 block.begin(next);
             }
         });
+    }
+
+    /**
+     * Shorthand to eliminate the "Do.Try" from the signature.
+     *
+     * Because this type is used often and the type param is often required
+     * because it can't be inferred when the seq is not assigned to a variable
+     * (the common use case). {@code Seq.<String>tryOf(...)} is a lot easier
+     * to read than {@code Seq.<Do.Try<String>>tryOf(...)}.
+     *
+     * @param block An action that takes a wrapped value or error.
+     * @param <T> The type of the wrapped value.
+     * @return An executable, extendable sequence.
+     */
+    public static <T> Seq<?, Do.Try<T>> tryOf(Do.Execute<Do.Try<T>> block) {
+        return of(block);
     }
 
     private final Do.Execute<T> prev;
@@ -55,9 +73,23 @@ public class Seq<T, U> implements Do.Execute<U> {
      *
      * @param next The next step in the computation.
      * @param <V> The type of the value produced by the next step.
+     * @return An executable, extendable sequence.
      */
     public <V> Seq<U, V> pipe(Do.Continue<U, V> next) {
         return new Seq<>(this, next);
+    }
+
+    /**
+     * Shorthand to eliminate the "Do.Try" from the signature.
+     *
+     * Same rationale as {@link #tryOf(Do.Execute)}.
+     *
+     * @param next A continuation that takes a wrapped value or error.
+     * @param <V> The type of the wrapped value.
+     * @return An executable, extendable sequence.
+     */
+    public <V> Seq<U, Do.Try<V>> tryPipe(Do.Continue<U, Do.Try<V>> next) {
+        return pipe(next);
     }
 
     /**

@@ -25,14 +25,14 @@ public class EitherTest {
     }
 
     @Test
-    public void immediate_get() throws Throwable {
+    public void immediate_get() throws Exception {
         Either<?, String> either = new Either<>();
         either.pass("foo");
         assertEquals("foo", either.get());
     }
 
     @Test
-    public void immediate_get_shortcut() throws Throwable {
+    public void immediate_get_shortcut() throws Exception {
         assertEquals("bar", Either.ok("bar").get());
     }
 
@@ -44,7 +44,7 @@ public class EitherTest {
     }
 
     @Test(expected = IllegalStateException.class)
-    public void immediate_throw_shortcut() throws Throwable {
+    public void immediate_throw_shortcut() throws Exception {
         Either.error(new IllegalStateException()).get();
     }
 
@@ -65,7 +65,7 @@ public class EitherTest {
     }
 
     @Test
-    public void does_not_overwrite_the_value() throws Throwable {
+    public void does_not_overwrite_the_value() throws Exception {
         Either<?, String> either = new Either<>();
         either.pass("foo");
         either.pass("bar");
@@ -85,7 +85,7 @@ public class EitherTest {
     }
 
     @Test(timeout = 1000)
-    public void get_blocks_until_value_is_set() throws Throwable {
+    public void get_blocks_until_value_is_set() throws Exception {
         final Either<?, Void> value = new Either<>();
         final CountDownLatch checkpoint = new CountDownLatch(1);
         final CountDownLatch done = new CountDownLatch(1);
@@ -95,8 +95,8 @@ public class EitherTest {
             checkpoint.countDown();
             try {
                 value.get();
-            } catch (Throwable throwable) {
-                throwable.printStackTrace();
+            } catch (Exception e) {
+                e.printStackTrace();
                 fail("interrupted");
             }
             flag.set(true);

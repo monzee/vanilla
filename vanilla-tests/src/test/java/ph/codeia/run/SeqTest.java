@@ -94,7 +94,7 @@ public class SeqTest {
     public void error_handling() throws InterruptedException {
         final AtomicBoolean done = new AtomicBoolean(false);
         Seq.<Do.Try<String>> of(next -> {
-            next.got(Either.error(new Throwable("hi")));
+            next.got(Either.error(new Exception("hi")));
         }).begin(result -> {
             try {
                 result.get();

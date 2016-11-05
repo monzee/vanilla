@@ -18,7 +18,7 @@ public interface Do {
      * @param <T> The type of the value
      */
     interface Try<T> {
-        T get() throws Throwable;
+        T get() throws Exception;
     }
 
     /**
@@ -40,7 +40,7 @@ public interface Do {
      * @param <U> The type of the derived value.
      */
     interface Map<T, U> {
-        U from(T value) throws Throwable;
+        U from(T value) throws Exception;
     }
 
     /**

@@ -17,13 +17,17 @@ import java.util.concurrent.TimeoutException;
  * Calls to {@link #get()} will block the thread until a value or an error
  * is set.
  *
- * @param <E> The error type
- * @param <T> The success type
+ * @param <E> The error type, must be a subtype of {@link Exception}.
+ * @param <T> The success type.
  */
-public class Either<E extends Throwable, T> implements Do.Try<T> {
+public class Either<E extends Exception, T> implements Do.Try<T> {
 
     /**
      * Creates an Either from a {@link Callable}.
+     *
+     * @param value A function that produces a value or throws an exception.
+     * @param <T> The type of the value produced by the function.
+     * @return An either.
      */
     public static <T> Either<Exception, T> of(Callable<T> value) {
         Either<Exception, T> either = new Either<>();
@@ -35,14 +39,28 @@ public class Either<E extends Throwable, T> implements Do.Try<T> {
         return either;
     }
 
+    /**
+     * An either initialized with a success value.
+     *
+     * @param value The value.
+     * @param <T> The type of the value.
+     * @return An either.
+     */
     public static <T> Either<?, T> ok(T value) {
         Either<?, T> either = new Either<>();
         either.pass(value);
         return either;
     }
 
-    public static <T> Either<Throwable, T> error(Throwable error) {
-        Either<Throwable, T> either = new Either<>();
+    /**
+     * An either initialized with an error.
+     *
+     * @param error The error.
+     * @param <T> The supposed type of the success value.
+     * @return An either.
+     */
+    public static <T> Either<Exception, T> error(Exception error) {
+        Either<Exception, T> either = new Either<>();
         either.fail(error);
         return either;
     }
@@ -55,22 +73,22 @@ public class Either<E extends Throwable, T> implements Do.Try<T> {
 
     @Override
     public T get() throws E, InterruptedException {
-        while (true) {
-            switch (state) {
-                case OK:
-                    return value;
-                case ERROR:
-                    throw error;
-                case INCOMPLETE:
-                    synchronized (this) {
-                        wait();
-                    }
-            }
+        while (true) switch (state) {
+            case OK:
+                return value;
+            case ERROR:
+                throw error;
+            case INCOMPLETE:
+                synchronized (this) {
+                    wait();
+                }
         }
     }
 
     /**
      * Completes the computation with an error.
+     *
+     * @param error Should be an {@link Exception} subtype
      */
     public synchronized void fail(E error) {
         if (state == State.INCOMPLETE) {
@@ -82,6 +100,8 @@ public class Either<E extends Throwable, T> implements Do.Try<T> {
 
     /**
      * Completes the computation.
+     *
+     * @param value The success value.
      */
     public synchronized void pass(T value) {
         if (state == State.INCOMPLETE) {
@@ -134,23 +154,21 @@ public class Either<E extends Throwable, T> implements Do.Try<T> {
                     return get();
                 }
                 long remaining = unit.toNanos(timeout);
-                while (true) {
-                    switch (state) {
-                        case OK:
-                            return value;
-                        case ERROR:
-                            throw new ExecutionException(error);
-                        case INCOMPLETE:
-                            if (remaining <= 0) {
-                                throw new TimeoutException();
-                            }
-                            synchronized (Either.this) {
-                                long aWhileAgo = System.nanoTime();
-                                TimeUnit.NANOSECONDS.timedWait(Either.this, remaining);
-                                long elapsed = System.nanoTime() - aWhileAgo;
-                                remaining -= elapsed;
-                            }
-                    }
+                while (true) switch (state) {
+                    case OK:
+                        return value;
+                    case ERROR:
+                        throw new ExecutionException(error);
+                    case INCOMPLETE:
+                        if (remaining <= 0) {
+                            throw new TimeoutException();
+                        }
+                        synchronized (Either.this) {
+                            long aWhileAgo = System.nanoTime();
+                            TimeUnit.NANOSECONDS.timedWait(Either.this, remaining);
+                            long elapsed = System.nanoTime() - aWhileAgo;
+                            remaining -= elapsed;
+                        }
                 }
             }
         };
