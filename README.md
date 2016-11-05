@@ -1,26 +1,166 @@
-Vanilla
-=======
+# Vanilla
 
-A gathering of classes I use here and there so I can just import this module
-in some future android project instead of digging up old projects to copy and
-paste.
+[ ![Download](https://api.bintray.com/packages/monzee/jvm/vanilla-android/images/download.svg) ](https://bintray.com/monzee/jvm/vanilla-android/_latestVersion)
 
-License
--------
+A small library of little things I do all the time in android. Maybe you'll find
+them useful too.
+
+## What?
+
+The android library at the moment contains 3 utilitiy classes. All of these
+implement generic, non-android dependent interfaces that might be used to
+abstract concrete android code into junit-testable bits.
+
+### AndroidChannel
+
+An implementation of the observer pattern. First, create a channel.
+
+~~~java
+private final Channel<String> status = new AndroidChannel<>();
+~~~
+
+Attach a listener. Save the `Link` reference so that it can be detached later
+if needed.
+
+~~~java
+private Channel.Link link;
+
+@Override protected void onResume() {
+  // ...
+  link = status.link(statusView::setText);
+}
+
+@Override protected void onPause() {
+  // ...
+  link.unlink();
+}
+
+@Override protected void onDestroy() {
+  // ...
+  // it is also possible to unlink all listeners at once if they are all over
+  // the place
+  status.unlinkAll();
+}
+~~~
+
+The listeners will be called in the UI thread when `Channel#send(T)` is called.
+
+~~~java
+// in a button listener somewhere
+status.send("Button was clicked.");
+~~~
+
+This is more useful when the listeners and the message sender are in different
+places. E.g. the listener is in an activity and the child fragments send events
+to it. The next component makes this possible.
+
+### AndroidLoderStore
+
+A cache implementation that is backed by a `LoaderManager` and dynamically
+created synchronous `Loader`s and `LoaderManager.LoaderCallback`s. Objects
+stored here will survive configuration changes.
+
+~~~java
+private Channel<String> onChildEvent;
+
+@Override protected void onResume() {
+  // ...
+  // This should not be used before Activity#onStart
+  Store cache = new AndroidLoaderStore(this);
+
+  // hardGet() initializes the stored value if it's not found. Later calls to
+  // get() and hardGet() will return the same instance returned by the factory
+  onChildEvent = cache.hardGet("from-child-to-activity", AndroidChannel::new);
+  onChildEvent.link(s -> Log.d(TAG, s));
+}
+
+@Override protected void onPause() {
+  // ...
+  onChildEvent.unlinkAll();
+}
+
+// fragment launch code somewhere
+~~~
+
+The fragment and activity can share the same store by scoping the store to the
+host activity and using the same key:
+
+~~~java
+// fragment class
+private Channel<String> toActivity;
+
+@Override protected void onResume() {
+  // ...
+  Store cache = new AndroidLoaderStore(getActivity());
+  // It can be hard to predict sometimes if this one or the activity method will
+  // be called first. By calling the cache in the exact same way, it is
+  // guaranteed that the activity and fragment will receive the same object
+  // regardless of the order they were called.
+  toActivity = cache.hardGet("from-child-to-activity", AndroidChannel::new);
+}
+
+private void somethingHappened() {
+  toActivity.send("what's going on");
+}
+~~~
+
+### AndroidRunner
+
+Somewhat like an `Executor` but runs functions that take values rather than
+plain `Runnable`s and `Callable`s. `AndroidChannel` uses `AndroidRunner.UI` to
+run the listeners in a main looper handler. It also offers two lazy static async
+runners that calls a function in a background thread and executes the
+continuation in the UI thread.
+
+~~~java
+// uses AsyncTask's static thread pool executor. the other async runner is
+// called AndroidRunner.ASYNC_SERIAL and enqueues the background tasks in one
+// thread.
+// this is a Lazy<T> object. It will only be created once. Later calls will
+// return the same instance.
+AndroidRunner.ASYNC_POOL.get().<String>wrap(next -> {
+  // this function is called in the background. feel free to block the thread.
+  String result = longRunningTask();
+  next.got(result);
+}).begin(result -> {
+  // this is called in the UI thread
+  view.show(result);
+});
+~~~
+
+TODO: other use cases
+
+## Installation
+
+Not yet available in jcenter, so you'll need to add a bintray URL for now.
+
+~~~groovy
+repositories {
+    maven { url 'https://dl.bintray.com/monzee/jvm' }
+}
+
+dependencies {
+    // ...
+    compile 'ph.codeia.vanilla:vanilla-android:0.2.0'
+}
+~~~
+
+## License
+
 > MIT License
-> 
+>
 > Copyright (c) 2016 Mon Zafra
-> 
+>
 > Permission is hereby granted, free of charge, to any person obtaining a copy
 > of this software and associated documentation files (the "Software"), to deal
 > in the Software without restriction, including without limitation the rights
 > to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 > copies of the Software, and to permit persons to whom the Software is
 > furnished to do so, subject to the following conditions:
-> 
+>
 > The above copyright notice and this permission notice shall be included in all
 > copies or substantial portions of the Software.
-> 
+>
 > THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 > IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 > FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -28,4 +168,4 @@ License
 > LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 > SOFTWARE.
- 
+
