@@ -1,29 +1,36 @@
 apply plugin: 'java'
 apply plugin: 'maven-publish'
 
-task sourceJar(type: Jar, dependsOn: 'classes') {
-    from sourceSets.main.allSource
+group = 'ph.codeia.vanilla'
+version = LIBRARY_VERSION
+
+targetCompatibility = 1.7
+sourceCompatibility = 1.7
+
+task sourceJar(type: Jar, dependsOn: 'classes', group: 'publishing') {
     classifier 'sources'
+    from sourceSets.main.allSource
 }
 
-task docJar(type: Jar, dependsOn: 'javadoc') {
-    from javadoc.destinationDir
+javadoc {
+    title = 'Vanilla Core'
+    options.links 'https://developer.android.com/reference'
+}
+
+
+task docJar(type: Jar, dependsOn: 'javadoc', group: 'publishing') {
     classifier 'javadoc'
+    from javadoc.destinationDir
 }
 
 publishing {
-    repositories {
-        maven {
-            name 'tmp'
-            url 'file:///tmp'
-        }
+    repositories.maven {
+        name 'tmp'
+        url 'file:///tmp'
     }
 
     publications {
         core(MavenPublication) {
-            groupId 'ph.codeia.vanilla'
-            artifactId 'vanilla-core'
-            version LIBRARY_VERSION
             from components.java
             artifact sourceJar
             artifact docJar
@@ -32,9 +39,5 @@ publishing {
 }
 
 dependencies {
-    compile fileTree(dir: 'libs', include: ['*.jar'])
 }
-
-targetCompatibility = 1.7
-sourceCompatibility = 1.7
 

@@ -1,6 +1,9 @@
 apply plugin: 'com.android.library'
 apply plugin: 'maven-publish'
 
+group = 'ph.codeia.vanilla'
+version = LIBRARY_VERSION
+
 android {
     compileSdkVersion 25
     buildToolsVersion "24.0.2"
@@ -20,72 +23,59 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
-
-}
-
-android.libraryVariants.all { variant ->
-    if (!"release".equals(variant.buildType.name)) {
-        return
-    }
-
-    task("${variant.name}Javadoc", type: Javadoc, dependsOn: "assemble${variant.name.capitalize()}") {
-        source = variant.javaCompile.source
-
-        // First add all of your dependencies to the classpath, then add the android jars
-        classpath += files(variant.javaCompile.classpath.files)
-        classpath += files(android.getBootClasspath())
-
-        options {
-            links '../../../../vanilla-core/build/docs/javadoc'
-            linksOffline('https://developer.android.com/reference', 'http://docs.oracle.com/javase/7/docs/api')
-        }
-
-        // We're excluding these generated files
-        exclude '**/BuildConfig.java'
-        exclude '**/R.java'
-    }
-
-    task("${variant.name}JavadocJar", type: Jar, dependsOn: "${variant.name}Javadoc") {
-        classifier = 'javadoc'
-        from tasks["${variant.name}Javadoc"].destinationDir
-    }
-
-    publishing.publications.release.artifact(tasks["${variant.name}JavadocJar"])
-}
-
-task sourceJar(type: Jar) {
-    from android.sourceSets.main.java.srcDirs
-    classifier 'sources'
 }
 
 publishing {
-    repositories {
-        maven {
-            name "tmp"
-            url "file:///tmp"
-        }
+    repositories.maven {
+        name "tmp"
+        url "file:///tmp"
     }
 
     publications {
-        release(MavenPublication) {
-            groupId 'ph.codeia.vanilla'
-            artifactId 'vanilla-android'
-            version LIBRARY_VERSION
+        android.libraryVariants.all { variant ->
+            def name = variant.name
 
-            artifact "$buildDir/outputs/aar/vanilla-android-release.aar"
-            artifact sourceJar
-            pom.withXml {
-                def node = asNode().appendNode('dependencies')
-                def core = node.appendNode('dependency')
-                core.appendNode('groupId', 'ph.codeia.vanilla')
-                core.appendNode('artifactId', 'vanilla-core')
-                core.appendNode('version', LIBRARY_VERSION)
-                configurations.compile.allDependencies.each { dep ->
-                    if (dep instanceof ExternalDependency) {
+            def docs = task("doc-$name",
+                    type: Javadoc,
+                    dependsOn: [variant.assemble, ':vanilla-core:javadoc'],
+                    group: 'documentation'
+            ) {
+                source = variant.javaCompile.source
+                classpath += files(variant.javaCompile.classpath.files, android.getBootClasspath())
+                title = 'Vanilla Android'
+                options {
+                    links '../../../../vanilla-core/build/docs/javadoc'
+                    links 'https://developer.android.com/reference'
+                }
+                exclude '**/BuildConfig.java'
+                exclude '**/R.java'
+            }
+
+            def docJar = task("docjar-$name", type: Jar, dependsOn: docs, group: 'publishing') {
+                classifier 'javadoc'
+                from docs.destinationDir
+            }
+
+            def sourceJar = task("source-$name", type: Jar, group: 'publishing') {
+                classifier 'sources'
+                from variant.javaCompile.source
+            }
+
+            create(name, MavenPublication) {
+                artifact variant.outputs[0].outputFile
+                artifact sourceJar
+                artifact docJar
+                pom.withXml {
+                    def node = asNode().appendNode('dependencies')
+                    configurations.compile.allDependencies.findAll {
+                        it instanceof ExternalModuleDependency || it instanceof ProjectDependency
+                    }.each {
                         def n = node.appendNode('dependency')
-                        n.appendNode('groupId', dep.group)
-                        n.appendNode('artifactId', dep.name)
-                        n.appendNode('version', dep.version)
+                        n.appendNode('groupId', it.group)
+                        n.appendNode('artifactId', it.name)
+                        if (it.version != null && !"unspecified".equals(it.version)) {
+                            n.appendNode('version', it.version)
+                        }
                     }
                 }
             }
@@ -94,7 +84,6 @@ publishing {
 }
 
 dependencies {
-    compile fileTree(dir: 'libs', include: ['*.jar'])
     compile project(':vanilla-core')
     provided 'com.android.support:appcompat-v7:25.0.0'
     testCompile 'junit:junit:4.12'
