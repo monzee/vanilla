@@ -22,17 +22,17 @@ public interface Runner {
     /**
      * Decorates a {@link Do.Execute} block
      */
-    <T> Do.Execute<T> wrap(Do.Execute<T> block);
+    <T> Do.Execute<T> apply(Do.Execute<T> block);
 
     /**
      * Decorates a {@link Do.Continue} block
      */
-    <T, U> Do.Continue<T, U> wrap(Do.Continue<T, U> block);
+    <T, U> Do.Continue<T, U> apply(Do.Continue<T, U> block);
 
     /**
      * Decorates a {@link Do.Just} block.
      *
-     * Changed the name to differentiate from {@link #wrap(Do.Execute)} so
+     * Changed the name to differentiate from {@link #apply(Do.Execute)} so
      * that lambdas don't have to be explicitly cast.
      */
     <T> Do.Just<T> run(Do.Just<T> block);

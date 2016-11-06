@@ -30,13 +30,13 @@ public class Memoize implements LabelledRunner {
     }
 
     @Override
-    public <T> Do.Execute<T> wrap(Do.Execute<T> block) {
-        return delegate.wrap(block);
+    public <T> Do.Execute<T> apply(Do.Execute<T> block) {
+        return delegate.apply(block);
     }
 
     @Override
-    public <T, U> Do.Continue<T, U> wrap(Do.Continue<T, U> block) {
-        return delegate.wrap(block);
+    public <T, U> Do.Continue<T, U> apply(Do.Continue<T, U> block) {
+        return delegate.apply(block);
     }
 
     @Override
@@ -46,7 +46,7 @@ public class Memoize implements LabelledRunner {
 
     @Override
     public <T> Do.Execute<T> label(final String key, final Do.Execute<T> block) {
-        return delegate.wrap(new Do.Execute<T>() {
+        return delegate.apply(new Do.Execute<T>() {
             @Override
             public void begin(Do.Just<T> next) {
                 next.got(store.hardGet(key, new Do.Make<T>() {
@@ -68,7 +68,7 @@ public class Memoize implements LabelledRunner {
 
     @Override
     public <T, U> Do.Continue<T, U> label(final String key, final Do.Continue<T, U> block) {
-        return delegate.wrap(new Do.Continue<T, U>() {
+        return delegate.apply(new Do.Continue<T, U>() {
             @Override
             public void then(final T value, Do.Just<U> next) {
                 next.got(store.hardGet(key, new Do.Make<U>() {

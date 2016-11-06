@@ -24,8 +24,8 @@ public class Jump implements LabelledRunner {
     }
 
     @Override
-    public <T> Do.Execute<T> wrap(final Do.Execute<T> block) {
-        return delegate.wrap(new Do.Execute<T>() {
+    public <T> Do.Execute<T> apply(final Do.Execute<T> block) {
+        return delegate.apply(new Do.Execute<T>() {
             @Override
             public void begin(Do.Just<T> next) {
                 boolean shouldJump = Control.JUMP.signalled();
@@ -41,8 +41,8 @@ public class Jump implements LabelledRunner {
     }
 
     @Override
-    public <T, U> Do.Continue<T, U> wrap(final Do.Continue<T, U> block) {
-        return delegate.wrap(new Do.Continue<T, U>() {
+    public <T, U> Do.Continue<T, U> apply(final Do.Continue<T, U> block) {
+        return delegate.apply(new Do.Continue<T, U>() {
             @Override
             public void then(T value, Do.Just<U> next) {
                 boolean shouldJump = Control.JUMP.signalled();
@@ -77,7 +77,7 @@ public class Jump implements LabelledRunner {
 
     @Override
     public <T> Do.Execute<T> label(final String key, final Do.Execute<T> block) {
-        return delegate.wrap(new Do.Execute<T>() {
+        return delegate.apply(new Do.Execute<T>() {
             @Override
             public void begin(final Do.Just<T> next) {
                 labels.put(key, new Do.Just<T>() {
@@ -96,7 +96,7 @@ public class Jump implements LabelledRunner {
             final String key,
             final Do.Continue<T, U> block
     ) {
-        return delegate.wrap(new Do.Continue<T, U>() {
+        return delegate.apply(new Do.Continue<T, U>() {
             @Override
             public void then(final T value, final Do.Just<U> next) {
                 labels.put(key, new Do.Just<T>() {

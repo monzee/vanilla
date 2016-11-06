@@ -37,8 +37,8 @@ private Channel.Link link;
 
 @Override protected void onDestroy() {
   // ...
-  // it is also possible to unlink all listeners at once if they are all over
-  // the place
+  // it is also possible to unlink all listeners at once from the channel if
+  // they are all over the place
   status.unlinkAll();
 }
 ~~~
@@ -52,7 +52,7 @@ status.send("Button was clicked.");
 
 This becomes a lot more useful when the message sender and listeners are in different
 places. E.g. the listener is in an activity and the child fragments send events
-to it. The next component makes this possible.
+to it, or fragment to child fragments. The next component makes this possible.
 
 ### AndroidLoaderStore
 
@@ -83,8 +83,8 @@ private Channel<String> onChildEvent;
 // fragment launch code somewhere
 ~~~
 
-The fragment and activity can share the same store backend by scoping the store to the
-host activity:
+The fragment and activity can share the same store backend by scoping the
+fragment store to the host activity:
 
 ~~~java
 // fragment class
@@ -121,7 +121,7 @@ continuation in the UI thread.
 //   thread.
 // - This is a Lazy<T> object. It will only be created once. Later calls will
 //   return the same instance. Same with ASYNC_SERIAL.
-AndroidRunner.ASYNC_POOL.get().<String>wrap(next -> {
+AndroidRunner.ASYNC_POOL.get().<String>apply(next -> {
   // this function will be called in the background. feel free to block the thread.
   String result = longRunningTask();
   // uses CPS. Do not return the result, call the continuation with it.
@@ -134,7 +134,7 @@ AndroidRunner.ASYNC_POOL.get().<String>wrap(next -> {
 
 It's basically a more abstract `AsyncTask`. I use its base interface in my
 presenters/use cases and pass synchronous runners in my tests. It is possible to
-do some interesting things, like joining parallel calls, memoizing blocks, and
+do some interesting things, like joining parallel calls, memoization, looping and
 even jumping to labelled blocks.
 
 ## Installation
@@ -143,12 +143,13 @@ Not yet available in jcenter, so you'll need to add a bintray URL for now.
 
 ~~~groovy
 repositories {
+    // ...
     maven { url 'https://dl.bintray.com/monzee/jvm' }
 }
 
 dependencies {
     // ...
-    compile 'ph.codeia.vanilla:vanilla-android:$LATEST_VERSION'
+    compile "ph.codeia.vanilla:vanilla-android:$LATEST_VERSION"
 }
 ~~~
 
