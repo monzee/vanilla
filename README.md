@@ -7,7 +7,7 @@ them useful too.
 
 ## What?
 
-The android library at the moment contains 3 utilitiy classes. All of these
+The android library at the moment contains 3 utility classes. All of these
 implement generic, android platform-free interfaces that might be used to
 abstract concrete android code into junit-testable bits.
 
@@ -134,19 +134,13 @@ AndroidRunner.ASYNC_POOL.get().<String>apply(next -> {
 
 It's basically a more abstract `AsyncTask`. I use its base interface in my
 presenters/use cases and pass synchronous runners in my tests. It is possible to
-do some interesting things, like joining parallel calls, memoization, looping and
-even jumping to labelled blocks.
+do some interesting things like joining parallel calls, memoization, looping or
+even jumping to labelled blocks. They will be documented once the interface has
+solidified.
 
 ## Installation
 
-Not yet available in jcenter, so you'll need to add a bintray URL for now.
-
 ~~~groovy
-repositories {
-    // ...
-    maven { url 'https://dl.bintray.com/monzee/jvm' }
-}
-
 dependencies {
     // ...
     compile "ph.codeia.vanilla:vanilla-android:$LATEST_VERSION"

@@ -35,13 +35,9 @@ publishing {
         android.libraryVariants.all { variant ->
             def name = variant.name
 
-            def docs = task("doc-$name",
-                    type: Javadoc,
-                    dependsOn: [variant.assemble, ':vanilla-core:javadoc'],
-                    group: 'documentation'
-            ) {
+            def docs = task("doc-$name", type: Javadoc, group: 'documentation') {
                 source = variant.javaCompile.source
-                classpath += files(variant.javaCompile.classpath.files, android.getBootClasspath())
+                classpath += files(variant.javaCompile.classpath.files, android.bootClasspath)
                 title = 'Vanilla Android'
                 options {
                     links '../../../../vanilla-core/build/docs/javadoc'
@@ -50,21 +46,21 @@ publishing {
                 exclude '**/BuildConfig.java'
                 exclude '**/R.java'
             }
+            docs.dependsOn variant.assemble, ':vanilla-core:javadoc'
 
-            def docJar = task("docjar-$name", type: Jar, dependsOn: docs, group: 'publishing') {
-                classifier 'javadoc'
-                from docs.destinationDir
-            }
-
-            def sourceJar = task("source-$name", type: Jar, group: 'publishing') {
-                classifier 'sources'
-                from variant.javaCompile.source
-            }
-
-            create(name, MavenPublication) {
+            "$name"(MavenPublication) {
                 artifact variant.outputs[0].outputFile
-                artifact sourceJar
-                artifact docJar
+
+                artifact task("source-$name", type: Jar, group: 'publishing') {
+                    classifier 'sources'
+                    from variant.javaCompile.source
+                }
+
+                artifact task("docjar-$name", type: Jar, dependsOn: docs, group: 'publishing') {
+                    classifier 'javadoc'
+                    from docs.destinationDir
+                }
+
                 pom.withXml {
                     def node = asNode().appendNode('dependencies')
                     configurations.compile.allDependencies.findAll {
@@ -73,7 +69,7 @@ publishing {
                         def n = node.appendNode('dependency')
                         n.appendNode('groupId', it.group)
                         n.appendNode('artifactId', it.name)
-                        if (it.version != null && !"unspecified".equals(it.version)) {
+                        if (!(it.version in [null, "unspecified"])) {
                             n.appendNode('version', it.version)
                         }
                     }
