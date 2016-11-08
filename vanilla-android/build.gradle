@@ -13,7 +13,6 @@ android {
         targetSdkVersion 25
         versionCode 1
         versionName "v$LIBRARY_VERSION"
-
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
 
@@ -25,19 +24,38 @@ android {
     }
 }
 
+dependencies {
+    compile project(':vanilla-core')
+    provided 'com.android.support:appcompat-v7:25.0.0'
+    testCompile 'junit:junit:4.12'
+}
+
 publishing {
-    repositories.maven {
-        name "tmp"
-        url "file:///tmp"
+    repositories {
+        maven {
+            name 'tmp'
+            url 'file:///tmp'
+        }
+
+        maven {
+            name 'bintray'
+            url 'https://api.bintray.com/maven/monzee/jvm/vanilla-android/'
+            credentials {
+                username = BINTRAY_USER
+                password = BINTRAY_API_KEY
+            }
+        }
     }
 
     publications {
         android.libraryVariants.all { variant ->
             def name = variant.name
-
+            def deps = variant.variantData.variantDependency.compileDependencies
+            def allDeps = deps.androidDependencies + deps.jarDependencies
+            def javac = variant.javaCompile
             def docs = task("doc-$name", type: Javadoc, group: 'documentation') {
-                source = variant.javaCompile.source
-                classpath += files(variant.javaCompile.classpath.files, android.bootClasspath)
+                source = javac.source
+                classpath += javac.classpath + files(android.bootClasspath)
                 title = 'Vanilla Android'
                 options {
                     links '../../../../vanilla-core/build/docs/javadoc'
@@ -45,15 +63,14 @@ publishing {
                 }
                 exclude '**/BuildConfig.java'
                 exclude '**/R.java'
-            }
-            docs.dependsOn variant.assemble, ':vanilla-core:javadoc'
+            }.dependsOn javac, ':vanilla-core:javadoc'
 
             "$name"(MavenPublication) {
-                artifact variant.outputs[0].outputFile
+                artifact source: variant.outputs[0].outputFile, builtBy: variant.assemble
 
                 artifact task("source-$name", type: Jar, group: 'publishing') {
                     classifier 'sources'
-                    from variant.javaCompile.source
+                    from javac.source
                 }
 
                 artifact task("docjar-$name", type: Jar, dependsOn: docs, group: 'publishing') {
@@ -63,24 +80,14 @@ publishing {
 
                 pom.withXml {
                     def node = asNode().appendNode('dependencies')
-                    configurations.compile.allDependencies.findAll {
-                        it instanceof ExternalModuleDependency || it instanceof ProjectDependency
-                    }.each {
+                    allDeps.findAll { !it.provided }.resolvedCoordinates.each {
                         def n = node.appendNode('dependency')
-                        n.appendNode('groupId', it.group)
-                        n.appendNode('artifactId', it.name)
-                        if (!(it.version in [null, "unspecified"])) {
-                            n.appendNode('version', it.version)
-                        }
+                        n.appendNode('groupId', it.groupId)
+                        n.appendNode('artifactId', it.artifactId)
+                        n.appendNode('version', it.version)
                     }
                 }
             }
         }
     }
-}
-
-dependencies {
-    compile project(':vanilla-core')
-    provided 'com.android.support:appcompat-v7:25.0.0'
-    testCompile 'junit:junit:4.12'
 }

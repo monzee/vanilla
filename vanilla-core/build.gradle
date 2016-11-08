@@ -7,6 +7,9 @@ version = LIBRARY_VERSION
 targetCompatibility = 1.7
 sourceCompatibility = 1.7
 
+dependencies {
+}
+
 task sourceJar(type: Jar, dependsOn: 'classes', group: 'publishing') {
     classifier 'sources'
     from sourceSets.main.allSource
@@ -23,9 +26,20 @@ task docJar(type: Jar, dependsOn: 'javadoc', group: 'publishing') {
 }
 
 publishing {
-    repositories.maven {
-        name 'tmp'
-        url 'file:///tmp'
+    repositories {
+        maven {
+            name 'tmp'
+            url 'file:///tmp'
+        }
+
+        maven {
+            name 'bintray'
+            url 'https://api.bintray.com/maven/monzee/jvm/vanilla-core/'
+            credentials {
+                username = BINTRAY_USER
+                password = BINTRAY_API_KEY
+            }
+        }
     }
 
     publications {
@@ -37,5 +51,3 @@ publishing {
     }
 }
 
-dependencies {
-}
