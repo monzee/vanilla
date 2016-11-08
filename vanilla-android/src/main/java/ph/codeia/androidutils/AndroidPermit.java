@@ -2,12 +2,11 @@ package ph.codeia.androidutils;
 
 import android.app.Activity;
 import android.content.Context;
-import android.content.pm.PackageManager;
 import android.support.v4.app.ActivityCompat;
-import android.support.v4.content.ContextCompat;
+import android.support.v4.content.PermissionChecker;
 
-import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -22,6 +21,10 @@ import ph.codeia.values.Do;
 
 /**
  * A {@link Permit} for marshmallow and above, implemented as a mutable builder.
+ *
+ * Can still (and should) be used before marshmallow, except it just calls the
+ * allow callback immediately after {@link #granted(Runnable)} or throws if the
+ * permission was not declared.
  */
 @Experimental
 public class AndroidPermit implements Permit {
@@ -30,11 +33,10 @@ public class AndroidPermit implements Permit {
 
     private final Context context;
     private final Activity client;
-    private final Set<String> permissions = new HashSet<>();
+    private final Set<String> permissions = new LinkedHashSet<>();
     private final int code = COUNTER.getAndIncrement();
-    private Do.Just<Void> onAllow;
     private Do.Just<Sensitive> onDeny;
-    private int round = 0;
+    private boolean allGranted = true;
 
     public AndroidPermit(Context context, Activity client) {
         this.context = context;
@@ -56,24 +58,19 @@ public class AndroidPermit implements Permit {
     }
 
     @Override
-    public Permit granted(final Runnable block) {
-        onAllow = AndroidRunner.UI.run(new Do.Just<Void>() {
-            @Override
-            public void got(Void value) {
-                block.run();
-            }
-        });
-        return this;
-    }
-
-    @Override
     public Permit denied(Do.Just<Sensitive> block) {
         onDeny = AndroidRunner.UI.run(block);
         return this;
     }
 
     @Override
-    public Sensitive action() {
+    public Sensitive granted(final Runnable block) {
+        final Do.Just<Void> onAllow = AndroidRunner.UI.run(new Do.Just<Void>() {
+            @Override
+            public void got(Void value) {
+                block.run();
+            }
+        });
         return new Sensitive() {
             @Override
             public Iterator<String> iterator() {
@@ -98,9 +95,9 @@ public class AndroidPermit implements Permit {
                             permissions.toArray(new String[0]),
                             code
                     );
-                } else if (round == 0) {
+                } else if (allGranted) {
                     onAllow.got(null);
-                } else {
+                } else if (onDeny != null) {
                     onDeny.got(this);
                 }
             }
@@ -110,16 +107,17 @@ public class AndroidPermit implements Permit {
                 if (AndroidPermit.this.code != code) {
                     return false;
                 }
-                boolean allGranted = true;
+                allGranted = true;
                 for (int i = 0; i < permissions.length; i++) {
                     if (allowed(grants[i]) || !canAppeal(permissions[i])) {
                         allGranted = allGranted && allowed(grants[i]);
                         AndroidPermit.this.permissions.remove(permissions[i]);
                     }
                 }
-                if (!allGranted) {
+                if (allGranted) {
+                    onAllow.got(null);
+                } else if (onDeny != null) {
                     onDeny.got(this);
-                    round++;
                 }
                 return true;
             }
@@ -131,11 +129,18 @@ public class AndroidPermit implements Permit {
     }
 
     private boolean allowed(String permission) {
-        return allowed(ContextCompat.checkSelfPermission(context, permission));
+        return allowed(PermissionChecker.checkSelfPermission(context, permission));
     }
 
     private static boolean allowed(int result) {
-        return result == PackageManager.PERMISSION_GRANTED;
+        switch (result) {
+            case PermissionChecker.PERMISSION_GRANTED:
+                return true;
+            case PermissionChecker.PERMISSION_DENIED:
+                return false;
+            default:
+                throw new IllegalArgumentException("Permission not declared in manifest.");
+        }
     }
 
 }

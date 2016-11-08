@@ -8,14 +8,14 @@ import ph.codeia.values.Do;
  */
 
 /**
- * A permission model that resembles android's runtime permissions.
+ * A permission model that resembles android M's runtime permissions.
  *
  * The idea is that the app initially requests a set of permissions. The user
  * can grant all or some of them. If not all was granted, the app should then
- * receive another Sensitive object with the permissions that were denied and are
- * appealable. If none of the denied permissions are appealable, the app will
- * be called back with an empty Sensitive. If everything was granted, a runnable
- * will be invoked.
+ * receive another {@link Sensitive} object with the permissions that were
+ * denied and are appealable. If none of the denied permissions are appealable,
+ * the app will be called back with an empty Sensitive. Once everything has
+ * been granted, the granted callback will be invoked.
  */
 @Experimental
 public interface Permit {
@@ -23,21 +23,20 @@ public interface Permit {
     /**
      * Adds a list of permissions to the set of permissions to ask.
      *
-     * @param permissions The permissions to request.
+     * If no permissions were added or all permissions are already granted, the
+     * runnable passed to {@link #granted(Runnable)} will be invoked
+     * immediately when {@link Sensitive#submit()} is called.
+     *
+     * @param permissions The permissions to ask.
      * @return a builder object, probably this
      */
     Permit ask(String... permissions);
 
     /**
-     * What to do when all of the permissions are granted.
+     * What to do when all or some of the permissions are denied. Optional.
      *
-     * @param block The action.
-     * @return a builder object, probably this
-     */
-    Permit granted(Runnable block);
-
-    /**
-     * What to do when all or some of the permissions are denied.
+     * NEVER UNCONDITIONALLY RESUBMIT THE APPEAL OBJECT! You will be stuck
+     * in an infinite loop if the permissions are permanently denied.
      *
      * @param block The action; receives a {@link Sensitive} object containing
      *              the denied permissions that can be appealed. If all
@@ -50,9 +49,9 @@ public interface Permit {
     /**
      * Builds a {@link Sensitive} object.
      *
-     * @return an object that could initiate the request and receive the
-     * grants
+     * @param block The action to do when all of the permissions are granted.
+     * @return an object that could initiate the request and receive grants
      */
-    Sensitive action();
+    Sensitive granted(Runnable block);
 
 }

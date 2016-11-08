@@ -1,6 +1,7 @@
 package ph.codeia.security;
 
 import ph.codeia.meta.Experimental;
+import ph.codeia.values.Do;
 
 /**
  * This file is a part of the vanilla project.
@@ -8,11 +9,20 @@ import ph.codeia.meta.Experimental;
 
 /**
  * An action that requires a set of permissions to proceed.
+ *
+ * The introspection methods are meant to be used inside the
+ * {@link Permit#denied(Do.Just)} blocks to identify which permissions are
+ * still ungranted so that the app can display a message to the user
+ * explaining why the permissions are needed. One should never unconditionally
+ * submit the {@link Sensitive} object inside the deny callback or they might
+ * loop forever.
  */
 @Experimental
 public interface Sensitive extends Iterable<String> {
 
     /**
+     * Does this object contain anything?
+     *
      * When received in a denied callback, an empty Sensitive means that
      * the user has permanently denied the permission and the app could not
      * appeal it any more unless the user changes it outside the app.
@@ -22,7 +32,7 @@ public interface Sensitive extends Iterable<String> {
     boolean isEmpty();
 
     /**
-     * Used to identify which permissions can be appealed.
+     * Does this object contain this permission?
      *
      * @param permission The name to query.
      * @return whether or not this permission is included in the set of perms
