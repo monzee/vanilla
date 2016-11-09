@@ -6,3 +6,7 @@ dependencies {
     testCompile 'junit:junit:4.12'
 }
 
+retrolambda {
+    oldJdk '/usr/lib/jvm/java-7-openjdk-amd64/'
+    defaultMethods true
+}
