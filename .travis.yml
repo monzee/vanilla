@@ -1,8 +1,8 @@
 language: java
 
-install: gradle -c settings-travis-ci.gradle assemble
+install: gradle -c settings-travis-ci.gradle -PBINTRAY_USER=nope -PBINTRAY_API_KEY=doublenope assemble
 
-script: gradle -c settings-travis-ci.gradle check
+script: gradle -c settings-travis-ci.gradle -PBINTRAY_USER=nope -PBINTRAY_API_KEY=doublenope check
 
 before_cache:
     - rm -f $HOME/.gradle/caches/modules-2/modules-2.lock
