@@ -1,6 +1,4 @@
-# Vanilla
-
-[ ![Download](https://api.bintray.com/packages/monzee/jvm/vanilla-android/images/download.svg) ](https://bintray.com/monzee/jvm/vanilla-android/_latestVersion)
+# Vanilla [![Build Status](https://travis-ci.org/monzee/vanilla.svg?branch=master)](https://travis-ci.org/monzee/vanilla) [![Download](https://api.bintray.com/packages/monzee/jvm/vanilla-android/images/download.svg)](https://bintray.com/monzee/jvm/vanilla-android/_latestVersion)
 
 A small library of little things I do all the time in android. Maybe you'll find
 them useful too.
