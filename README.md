@@ -149,7 +149,7 @@ solidified.
 
 Declare your code that requires certain permissions. This has to be done early
 and unconditionally because it is possible for the activity to be killed between
-your code requesting the permission and the system granting it.
+the times your code requesting permissions and the system granting it.
 
 ```java
   private Sensitive accessLocation;
@@ -163,7 +163,9 @@ your code requesting the permission and the system granting it.
           if (!appeal.isEmpty()) {
             // show rationale. you can iterate over the appeal object to get all
             // the denied permissions, or call #include(String) to query if the
-            // appeal includes a specific permission
+            // appeal includes a specific permission.
+            // depending on your use case, you might be able to proceed even
+            // with a partial grant
             dialogWithMessage(""
                 + "I need these permissions to proceed: "
                 + TextUtils.join(", ", appeal),
@@ -174,7 +176,7 @@ your code requesting the permission and the system granting it.
             tell("as you wish, boss. i'll just sit here doing nothing.");
           }
         })
-        .grant(this::displayLocation);
+        .granted(this::displayLocation);
   }
 
   private void displayLocation() {
