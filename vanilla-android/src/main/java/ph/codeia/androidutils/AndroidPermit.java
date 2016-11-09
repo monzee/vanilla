@@ -109,8 +109,8 @@ public class AndroidPermit implements Permit {
                 }
                 allGranted = true;
                 for (int i = 0; i < permissions.length; i++) {
+                    allGranted = allGranted && allowed(grants[i]);
                     if (allowed(grants[i]) || !canAppeal(permissions[i])) {
-                        allGranted = allGranted && allowed(grants[i]);
                         AndroidPermit.this.permissions.remove(permissions[i]);
                     }
                 }
