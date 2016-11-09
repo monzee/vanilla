@@ -1,6 +1,6 @@
 language: java
 
-install: 
+install: gradle --version
 
 script: gradle -c settings-travis-ci.gradle -PBINTRAY_USER=nope -PBINTRAY_API_KEY=doublenope -b build-travis-ci.gradle check
 
