@@ -1,9 +1,7 @@
 language: java
 
 script:
-    - gradle -b vanilla-core/build.gradle check
-    - gradle -b vanilla-test/build.gradle check
-    - gradle -b vanilla-android/build.gradle check
+    - gradle -c settings-travis-ci.gradle check
 
 before_cache:
     - rm -f $HOME/.gradle/caches/modules-2/modules-2.lock
