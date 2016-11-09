@@ -1,7 +1,8 @@
 language: java
 
-script:
-    - gradle -c settings-travis-ci.gradle check
+install: gradle -c settings-travis-ci.gradle assemble
+
+script: gradle -c settings-travis-ci.gradle check
 
 before_cache:
     - rm -f $HOME/.gradle/caches/modules-2/modules-2.lock
