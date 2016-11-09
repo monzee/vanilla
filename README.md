@@ -3,24 +3,25 @@
 A small library of little things I do all the time in android. Maybe you'll find
 them useful too.
 
-## What?
+## Usage
 
-The android library at the moment contains 3 utility classes. All of these
+Here's a brief demonstration of the common use cases. All of these components
 implement generic, android platform-free interfaces that might be used to
 abstract concrete android code into junit-testable bits.
+
 
 ### AndroidChannel
 
 An implementation of the observer pattern. First, create a channel.
 
-~~~java
+```java
 private final Channel<String> status = new AndroidChannel<>();
-~~~
+```
 
 Attach a listener using `#link(T -> ())`. Save the `Link` reference so that it can be detached later
 if needed.
 
-~~~java
+```java
 private Channel.Link link;
 
 @Override protected void onResume() {
@@ -39,18 +40,19 @@ private Channel.Link link;
   // they are all over the place
   status.unlinkAll();
 }
-~~~
+```
 
 The listeners will be called in the UI thread when `#send(T)` is called.
 
-~~~java
+```java
 // in a button listener somewhere
 status.send("Button was clicked.");
-~~~
+```
 
 This becomes a lot more useful when the message sender and listeners are in different
 places. E.g. the listener is in an activity and the child fragments send events
 to it, or fragment to child fragments. The next component makes this possible.
+
 
 ### AndroidLoaderStore
 
@@ -58,7 +60,7 @@ A cache implementation that is backed by a `LoaderManager` and dynamically
 created pairs of synchronous `Loader`s and `LoaderManager.LoaderCallback`s. Objects
 stored here will survive configuration changes with no extra effort.
 
-~~~java
+```java
 public static final String CHANNEL_KEY = "from-child-to-activity";
 private Channel<String> onChildEvent;
 
@@ -79,12 +81,12 @@ private Channel<String> onChildEvent;
 }
 
 // fragment launch code somewhere
-~~~
+```
 
 The fragment and activity can share the same store backend by scoping the
 fragment store to the host activity:
 
-~~~java
+```java
 // fragment class
 private Channel<String> toActivity;
 
@@ -103,7 +105,11 @@ private Channel<String> toActivity;
 private void somethingHappened() {
   toActivity.send("what's going on");
 }
-~~~
+```
+
+You can put any object in the store. There's no need to implement `Parcelable`
+or `Serializable`.
+
 
 ### AndroidRunner
 
@@ -113,22 +119,24 @@ run the listeners in a main looper handler. It also offers additional lazy stati
 runners that calls a function in a background thread and executes the
 continuation in the UI thread.
 
-~~~java
+```java
 // - This uses AsyncTask's static thread pool executor. The other async runner is
 //   called AndroidRunner.ASYNC_SERIAL and enqueues the background tasks in one
 //   thread.
 // - This is a Lazy<T> object. It will only be created once. Later calls will
 //   return the same instance. Same with ASYNC_SERIAL.
-AndroidRunner.ASYNC_POOL.get().<String>apply(next -> {
-  // this function will be called in the background. feel free to block the thread.
-  String result = longRunningTask();
-  // uses CPS. Do not return the result, call the continuation with it.
-  next.got(result);
-}).begin(result -> {
-  // this will be called in the UI thread
-  view.show(result);
-});
-~~~
+AndroidRunner.ASYNC_POOL.get()
+    .<String>apply(next -> {
+      // this function will be called in the background. feel free to block the thread.
+      String result = longRunningTask();
+      // uses CPS. Do not return the result, call the continuation with it.
+      next.got(result);
+    })
+    .begin(result -> {
+      // this will be called in the UI thread
+      view.show(result);
+    });
+```
 
 It's basically a more abstract `AsyncTask`. I use its base interface in my
 presenters/use cases and pass synchronous runners in my tests. It is possible to
@@ -136,24 +144,94 @@ do some interesting things like joining parallel calls, memoization, looping or
 even jumping to labelled blocks. They will be documented once the interface has
 solidified.
 
+
+### AndroidPermit
+
+Declare your code that requires certain permissions. This has to be done early
+and unconditionally because it is possible for the activity to be killed between
+your code requesting the permission and the system granting it.
+
+```java
+  private Sensitive accessLocation;
+
+  @Override protected void onStart() {
+    // ...
+    accessLocation = new AndroidPermit(this)
+        .ask(Manifest.permission.ACCESS_FINE_LOCATION /* add more here, it's variadic */)
+        // or you can call .ask(...) again
+        .denied(appeal -> {
+          if (!appeal.isEmpty()) {
+            // show rationale. you can iterate over the appeal object to get all
+            // the denied permissions, or call #include(String) to query if the
+            // appeal includes a specific permission
+            dialogWithMessage(""
+                + "I need these permissions to proceed: "
+                + TextUtils.join(", ", appeal),
+                // ask permission again when the dialog is dismissed.
+                appeal::submit);
+          } else {
+            // at least one permission was permanently denied.
+            tell("as you wish, boss. i'll just sit here doing nothing.");
+          }
+        })
+        .grant(this::displayLocation);
+  }
+
+  private void displayLocation() {
+    // you can get the location now.
+  }
+
+  private void dialogWithMessage(String message, Runnable onDismiss) {
+    // use your imagination
+  }
+
+  private void tell(String message) {
+    // Toast.make etc etc show()
+  }
+```
+
+Submit the grant request when you need it:
+
+```java
+  @OnClick(R.id.do_show_location) void doShowLocation() {
+    accessLocation.submit();
+  }
+```
+
+Delegate to the `Sensitive` object when the user has responded to the request:
+
+```java
+  @Override
+  public void onRequestPermissionsResult(
+      int requestCode,
+      @NonNull String[] permissions,
+      @NonNull int[] grantResults
+  ) {
+    if (!accessLocation.decide(requestCode, permissions, grantResults)) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+    }
+  }
+```
+
+
 ## Installation
 
-~~~groovy
+```groovy
 dependencies {
     // ...
     compile "ph.codeia.vanilla:vanilla-android:$LATEST_VERSION"
 }
-~~~
+```
 
 (Scroll up to the beginning of this document to see the latest version number.)
 
 Retrolambda is highly recommended.
 
-~~~groovy
+```groovy
 plugins {
     id 'me.tatarka.retrolambda' version '3.2.5'
 }
-~~~
+```
 
 ## License
 
