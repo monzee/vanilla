@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/request_coarse_location"
+        app:showAsAction="never"
+        android:title="Coarse location"
+        />
+
+    <item
+        android:id="@+id/request_fine_location"
+        app:showAsAction="never"
+        android:title="Fine location"
+        />
+
+    <item
+        android:id="@+id/request_read_contacts"
+        app:showAsAction="never"
+        android:title="Read contacts"
+        />
+
+    <item android:title="hello" />
+</menu>

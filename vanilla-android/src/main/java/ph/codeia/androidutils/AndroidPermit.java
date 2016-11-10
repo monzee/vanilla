@@ -2,12 +2,16 @@ package ph.codeia.androidutils;
 
 import android.app.Activity;
 import android.content.Context;
+import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.PermissionChecker;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -32,10 +36,52 @@ public class AndroidPermit implements Permit {
 
     private static final AtomicInteger COUNTER = new AtomicInteger(1);
 
+    private static class Primer implements Sensitive {
+        private final Sensitive delegate;
+        private final List<String> appeal;
+
+        Primer(Sensitive delegate, List<String> appeal) {
+            this.delegate = delegate;
+            this.appeal = appeal;
+        }
+
+        @Override
+        public boolean isEmpty() {
+            return appeal.isEmpty();
+        }
+
+        @Override
+        public boolean contains(String permission) {
+            return appeal.contains(permission);
+        }
+
+        @Override
+        public Set<String> banned() {
+            return delegate.banned();
+        }
+
+        @Override
+        public void submit() {
+            delegate.submit();
+        }
+
+        @Override
+        public boolean apply(int code, String[] permissions, int[] grants) {
+            return delegate.apply(code, permissions, grants);
+        }
+
+        @Override
+        public Iterator<String> iterator() {
+            return appeal.iterator();
+        }
+    }
+
     private final Context context;
     private final Activity client;
     private final Set<String> permissions = new LinkedHashSet<>();
     private final int code = COUNTER.getAndIncrement();
+
+    @Nullable
     private Do.Just<Sensitive> onDeny;
 
     public AndroidPermit(Context context, Activity client) {
@@ -99,14 +145,21 @@ public class AndroidPermit implements Permit {
             public void submit() {
                 int n = permissions.size();
                 String[] perms = permissions.toArray(new String[n]);
-                if (shouldRequestNow && n > 0) {
+                if (!shouldRequestNow && onDeny != null) {
+                    shouldRequestNow = true;
+                    List<String> preliminary = Collections.emptyList();
+                    for (String p : perms) {
+                        if (canAppeal(p)) {
+                            preliminary.add(p);
+                        }
+                    }
+                    onDeny.got(new Primer(this, preliminary));
+                } else if (n > 0) {
                     ActivityCompat.requestPermissions(client, perms, code);
-                } else {
-                    // route the first call through #apply(...) so that the
-                    // app can show the rationale if needed
-                    int[] grants = new int[n];
-                    Arrays.fill(grants, PermissionChecker.PERMISSION_DENIED);
-                    apply(code, perms, grants);
+                } else if (permaDenied.isEmpty()) {
+                    onAllow.got(null);
+                } else if (onDeny != null) {
+                    onDeny.got(this);
                 }
             }
 
@@ -118,13 +171,11 @@ public class AndroidPermit implements Permit {
                 for (int i = 0; i < permissions.length; i++) {
                     boolean allowed = allowed(grants[i]);
                     String permission = permissions[i];
-                    if (allowed) {
+                    if (allowed || !canAppeal(permission)) {
                         AndroidPermit.this.permissions.remove(permission);
-                    } else if (shouldRequestNow && !canAppeal(permission)) {
-                        AndroidPermit.this.permissions.remove(permission);
-                        permaDenied.add(permission);
-                    } else if (!shouldRequestNow) {
-
+                        if (!allowed) {
+                            permaDenied.add(permission);
+                        }
                     }
                 }
                 if (permaDenied.isEmpty()) {

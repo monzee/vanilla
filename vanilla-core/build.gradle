@@ -15,7 +15,7 @@ task sourceJar(type: Jar, dependsOn: 'classes', group: 'publishing') {
     from sourceSets.main.allSource
 }
 
-javadoc << {
+javadoc {
     title = 'Vanilla Core'
     options.links 'https://developer.android.com/reference'
 }
