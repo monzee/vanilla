@@ -61,7 +61,9 @@ created pairs of synchronous `Loader`s and `LoaderManager.LoaderCallback`s. Obje
 stored here will survive configuration changes with no extra effort.
 
 ```java
+public static final String TAG = "TheActivity";
 public static final String CHANNEL_KEY = "from-child-to-activity";
+
 private Channel<String> onChildEvent;
 
 @Override protected void onResume() {
@@ -148,77 +150,101 @@ solidified.
 ### AndroidPermit
 
 Declare your code that requires certain permissions. This has to be done early
-and unconditionally because it is possible for the activity to be killed between
-the times your code requesting permissions and the system granting it.
+and unconditionally because it is possible for the activity to be killed and
+recreated before you actually receive the grants.
 
 ```java
-  private Sensitive accessLocation;
+private Sensitive accessLocation;
 
-  @Override protected void onStart() {
-    // ...
-    accessLocation = new AndroidPermit(this)
-        .ask(Manifest.permission.ACCESS_FINE_LOCATION /* add more here, it's variadic */)
-        // or you can call .ask(...) again
-        .denied(appeal -> {
-          if (!appeal.isEmpty()) {
-            // show rationale. you can iterate over the appeal object to get all
-            // the denied permissions, or call #include(String) to query if the
-            // appeal includes a specific permission.
-            // depending on your use case, you might be able to proceed even
-            // with a partial grant
-            dialogWithMessage(""
-                + "I need these permissions to proceed: "
-                + TextUtils.join(", ", appeal),
-                // ask permission again when the dialog is dismissed.
-                appeal::submit);
-          } else {
-            // at least one permission was permanently denied.
-            tell("as you wish, boss. i'll just sit here doing nothing.");
-          }
-        })
-        .granted(this::displayLocation);
-  }
+@Override protected void onStart() {
+  // ...
+  accessLocation = new AndroidPermit(this)
+      .ask(Manifest.permission.ACCESS_FINE_LOCATION /* add more here, it's variadic */)
+      // or you can call #ask(String...) again
 
-  private void displayLocation() {
-    // you can get the location now.
-  }
+      .denied(appeal -> {
+        if (!appeal.isEmpty()) {
 
-  private void dialogWithMessage(String message, Runnable onDismiss) {
-    // use your imagination
-  }
+          // show rationale. you can iterate over the appeal object to get all
+          // the denied permissions, or call #contains(String) to query if the
+          // appeal includes a specific permission.
 
-  private void tell(String message) {
-    // Toast.make etc etc show()
-  }
+          // this is just an example. you can do whatever you want as long as
+          // you don't unconditionally call #submit() because that would be
+          // very annoying to the user.
+          explain(""
+              + "I need these permissions to proceed: "
+              + TextUtils.join(", ", appeal),
+
+              // ask permission again only when the dialog ok button is hit.
+              // we give up if the dialog was dismissed any other way.
+              appeal::submit);
+        } else {
+
+          // at least one permission was permanently denied. call #banned() to
+          // get them as a set.
+
+          // depending on your use case, you might be able to proceed even
+          // with a partial grant. here we just show a toast saying we
+          // cannot proceed.
+          tell("go to your device settings if you changed your mind.");
+        }
+      })
+
+      // the actual action
+      .granted(this::displayLocation);
+}
+
+private void displayLocation() {
+  // you can get the location now.
+}
+
+private void tell(String message) {
+  // Toast.make etc etc show()
+}
+
+private void explain(String message, Runnable ok) {
+  new AlertDialog.Builder(this)
+      .setTitle("Please?")
+      .setMessage(message)
+      .setPositiveButton("Ask me again", (dialog, id) -> ok.run())
+      .create()
+      .show();
+}
 ```
 
-Submit the grant request when you need it:
+Submit the grant request:
 
 ```java
-  @OnClick(R.id.do_show_location) void doShowLocation() {
-    accessLocation.submit();
-  }
+@OnClick(R.id.do_show_location) void doShowLocation() {
+  accessLocation.submit();
+}
 ```
 
-Delegate to the `Sensitive` object when the user has responded to the request:
+Delegate to the `Sensitive` action when the user responds to the request:
 
 ```java
-  @Override
-  public void onRequestPermissionsResult(
-      int requestCode,
-      @NonNull String[] permissions,
-      @NonNull int[] grantResults
-  ) {
-    if (!accessLocation.decide(requestCode, permissions, grantResults)) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-    }
+@Override
+public void onRequestPermissionsResult(
+    int requestCode,
+    @NonNull String[] permissions,
+    @NonNull int[] grantResults
+) {
+  if (!accessLocation.apply(requestCode, permissions, grantResults)) {
+    super.onRequestPermissionsResult(requestCode, permissions, grantResults);
   }
+}
 ```
+
+If you have many `Sensitive` actions, you'll need to call them one-by-one until
+something returns true.
 
 
 ## Installation
 
-```groovy
+This library is published at jcenter.
+
+```gradle
 dependencies {
     // ...
     compile "ph.codeia.vanilla:vanilla-android:$LATEST_VERSION"
@@ -229,11 +255,23 @@ dependencies {
 
 Retrolambda is highly recommended.
 
-```groovy
+```gradle
 plugins {
     id 'me.tatarka.retrolambda' version '3.2.5'
 }
 ```
+
+
+### Hacking
+
+The repository does not include a root settings file so you might not be able to
+import this project properly into Android Studio nor run any of the gradle tasks
+in the cli. Just copy `settings-travis-ci.gradle` into `settings.gradle` then
+stick `, ':vanilla-android'` at the end of the `include`. The reason I have
+excluded the settings is because I have a bunch of modules and other garbage
+in the directory where I'm writing this that I do not want to publish. Maybe
+I'll clean it up in the future.
+
 
 ## License
 

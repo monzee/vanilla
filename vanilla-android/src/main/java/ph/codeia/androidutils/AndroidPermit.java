@@ -5,6 +5,7 @@ import android.content.Context;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.PermissionChecker;
 
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -36,7 +37,6 @@ public class AndroidPermit implements Permit {
     private final Set<String> permissions = new LinkedHashSet<>();
     private final int code = COUNTER.getAndIncrement();
     private Do.Just<Sensitive> onDeny;
-    private boolean allGranted = true;
 
     public AndroidPermit(Context context, Activity client) {
         this.context = context;
@@ -72,6 +72,9 @@ public class AndroidPermit implements Permit {
             }
         });
         return new Sensitive() {
+            private final Set<String> permaDenied = new LinkedHashSet<>();
+            private boolean shouldRequestNow = false;
+
             @Override
             public Iterator<String> iterator() {
                 return permissions.iterator();
@@ -83,38 +86,48 @@ public class AndroidPermit implements Permit {
             }
 
             @Override
-            public boolean includes(String permission) {
+            public boolean contains(String permission) {
                 return permissions.contains(permission);
             }
 
             @Override
+            public Set<String> banned() {
+                return permaDenied;
+            }
+
+            @Override
             public void submit() {
-                if (!isEmpty()) {
-                    ActivityCompat.requestPermissions(
-                            client,
-                            permissions.toArray(new String[0]),
-                            code
-                    );
-                } else if (allGranted) {
-                    onAllow.got(null);
-                } else if (onDeny != null) {
-                    onDeny.got(this);
+                int n = permissions.size();
+                String[] perms = permissions.toArray(new String[n]);
+                if (shouldRequestNow && n > 0) {
+                    ActivityCompat.requestPermissions(client, perms, code);
+                } else {
+                    // route the first call through #apply(...) so that the
+                    // app can show the rationale if needed
+                    int[] grants = new int[n];
+                    Arrays.fill(grants, PermissionChecker.PERMISSION_DENIED);
+                    apply(code, perms, grants);
                 }
             }
 
             @Override
-            public boolean decide(int code, String[] permissions, int[] grants) {
+            public boolean apply(int code, String[] permissions, int[] grants) {
                 if (AndroidPermit.this.code != code) {
                     return false;
                 }
-                allGranted = true;
                 for (int i = 0; i < permissions.length; i++) {
-                    allGranted = allGranted && allowed(grants[i]);
-                    if (allowed(grants[i]) || !canAppeal(permissions[i])) {
-                        AndroidPermit.this.permissions.remove(permissions[i]);
+                    boolean allowed = allowed(grants[i]);
+                    String permission = permissions[i];
+                    if (allowed) {
+                        AndroidPermit.this.permissions.remove(permission);
+                    } else if (shouldRequestNow && !canAppeal(permission)) {
+                        AndroidPermit.this.permissions.remove(permission);
+                        permaDenied.add(permission);
+                    } else if (!shouldRequestNow) {
+
                     }
                 }
-                if (allGranted) {
+                if (permaDenied.isEmpty()) {
                     onAllow.got(null);
                 } else if (onDeny != null) {
                     onDeny.got(this);

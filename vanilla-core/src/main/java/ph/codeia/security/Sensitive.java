@@ -1,5 +1,7 @@
 package ph.codeia.security;
 
+import java.util.Set;
+
 import ph.codeia.meta.Experimental;
 import ph.codeia.values.Do;
 
@@ -38,7 +40,14 @@ public interface Sensitive extends Iterable<String> {
      * @return whether or not this permission is included in the set of perms
      * being asked
      */
-    boolean includes(String permission);
+    boolean contains(String permission);
+
+    /**
+     * Returns the denied permissions that can't be appealed.
+     *
+     * @return set of permissions.
+     */
+    Set<String> banned();
 
     /**
      * Sends the request.
@@ -54,6 +63,6 @@ public interface Sensitive extends Iterable<String> {
      *               index was granted or denied.
      * @return whether or not this object handled this permission response
      */
-    boolean decide(int code, String[] permissions, int[] grants);
+    boolean apply(int code, String[] permissions, int[] grants);
 
 }
