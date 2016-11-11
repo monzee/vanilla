@@ -2,12 +2,11 @@ package ph.codeia.androidutils;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
-import android.support.v4.content.PermissionChecker;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -16,6 +15,8 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import ph.codeia.meta.Experimental;
+import ph.codeia.run.PassThrough;
+import ph.codeia.run.Runner;
 import ph.codeia.security.Permit;
 import ph.codeia.security.Sensitive;
 import ph.codeia.values.Do;
@@ -36,11 +37,11 @@ public class AndroidPermit implements Permit {
 
     private static final AtomicInteger COUNTER = new AtomicInteger(1);
 
-    private static class Primer implements Sensitive {
+    private static class FalseStart implements Sensitive {
         private final Sensitive delegate;
         private final List<String> appeal;
 
-        Primer(Sensitive delegate, List<String> appeal) {
+        FalseStart(Sensitive delegate, List<String> appeal) {
             this.delegate = delegate;
             this.appeal = appeal;
         }
@@ -80,38 +81,42 @@ public class AndroidPermit implements Permit {
     private final Activity client;
     private final Set<String> permissions = new LinkedHashSet<>();
     private final int code = COUNTER.getAndIncrement();
+    private final Runner runner;
+    @Nullable private Do.Just<Sensitive> onDeny;
 
-    @Nullable
-    private Do.Just<Sensitive> onDeny;
-
-    public AndroidPermit(Context context, Activity client) {
+    public AndroidPermit(Context context, Activity client, Runner runner) {
         this.context = context;
         this.client = client;
+        this.runner = runner;
+    }
+
+    public AndroidPermit(Context context, Activity client) {
+        this(context, client, PassThrough.RUNNER);
     }
 
     public AndroidPermit(Activity activity) {
         this(activity.getApplicationContext(), activity);
     }
 
+    public AndroidPermit(Activity activity, Runner runner) {
+        this(activity.getApplicationContext(), activity, runner);
+    }
+
     @Override
     public Permit ask(String... permissions) {
-        for (String permission : permissions) {
-            if (!allowed(permission)) {
-                this.permissions.add(permission);
-            }
-        }
+        Collections.addAll(this.permissions, permissions);
         return this;
     }
 
     @Override
     public Permit denied(Do.Just<Sensitive> block) {
-        onDeny = AndroidRunner.UI.run(block);
+        onDeny = runner.run(block);
         return this;
     }
 
     @Override
     public Sensitive granted(final Runnable block) {
-        final Do.Just<Void> onAllow = AndroidRunner.UI.run(new Do.Just<Void>() {
+        final Do.Just<Void> onAllow = runner.run(new Do.Just<Void>() {
             @Override
             public void got(Void value) {
                 block.run();
@@ -119,7 +124,7 @@ public class AndroidPermit implements Permit {
         });
         return new Sensitive() {
             private final Set<String> permaDenied = new LinkedHashSet<>();
-            private boolean shouldRequestNow = false;
+            private boolean canRequestNow = false;
 
             @Override
             public Iterator<String> iterator() {
@@ -143,23 +148,28 @@ public class AndroidPermit implements Permit {
 
             @Override
             public void submit() {
+                for (Iterator<String> it = permissions.iterator(); it.hasNext();) {
+                    if (allowed(it.next())) {
+                        it.remove();
+                    }
+                }
                 int n = permissions.size();
                 String[] perms = permissions.toArray(new String[n]);
-                if (!shouldRequestNow && onDeny != null) {
-                    shouldRequestNow = true;
-                    List<String> preliminary = Collections.emptyList();
+                if (!canRequestNow && onDeny != null) {
+                    canRequestNow = true;
+                    List<String> primer = new ArrayList<>();
                     for (String p : perms) {
                         if (canAppeal(p)) {
-                            preliminary.add(p);
+                            primer.add(p);
                         }
                     }
-                    onDeny.got(new Primer(this, preliminary));
-                } else if (n > 0) {
-                    ActivityCompat.requestPermissions(client, perms, code);
-                } else if (permaDenied.isEmpty()) {
-                    onAllow.got(null);
-                } else if (onDeny != null) {
-                    onDeny.got(this);
+                    if (primer.isEmpty()) {
+                        reallySubmit(perms);
+                    } else {
+                        onDeny.got(new FalseStart(this, primer));
+                    }
+                } else {
+                    reallySubmit(perms);
                 }
             }
 
@@ -178,12 +188,22 @@ public class AndroidPermit implements Permit {
                         }
                     }
                 }
-                if (permaDenied.isEmpty()) {
+                if (isEmpty() && permaDenied.isEmpty()) {
                     onAllow.got(null);
                 } else if (onDeny != null) {
                     onDeny.got(this);
                 }
                 return true;
+            }
+
+            private void reallySubmit(String[] permissions) {
+                if (permissions.length > 0) {
+                    ActivityCompat.requestPermissions(client, permissions, code);
+                } else if (permaDenied.isEmpty()) {
+                    onAllow.got(null);
+                } else if (onDeny != null) {
+                    onDeny.got(this);
+                }
             }
         };
     }
@@ -193,18 +213,11 @@ public class AndroidPermit implements Permit {
     }
 
     private boolean allowed(String permission) {
-        return allowed(PermissionChecker.checkSelfPermission(context, permission));
+        return allowed(ActivityCompat.checkSelfPermission(context, permission));
     }
 
     private static boolean allowed(int result) {
-        switch (result) {
-            case PermissionChecker.PERMISSION_GRANTED:
-                return true;
-            case PermissionChecker.PERMISSION_DENIED:
-                return false;
-            default:
-                throw new IllegalArgumentException("Permission not declared in manifest.");
-        }
+        return result == PackageManager.PERMISSION_GRANTED;
     }
 
 }

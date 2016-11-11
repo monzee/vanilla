@@ -3,6 +3,10 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <item
+        android:id="@+id/do_something"
+        android:title="hello" />
+
+    <item
         android:id="@+id/request_coarse_location"
         app:showAsAction="never"
         android:title="Coarse location"
@@ -20,5 +24,16 @@
         android:title="Read contacts"
         />
 
-    <item android:title="hello" />
+    <item
+        android:id="@+id/request_combo"
+        app:showAsAction="never"
+        android:title="2-in-1"
+        />
+
+    <item
+        android:id="@+id/reset_permissions"
+        app:showAsAction="never"
+        android:title="Reset permissions"
+        />
+
 </menu>
