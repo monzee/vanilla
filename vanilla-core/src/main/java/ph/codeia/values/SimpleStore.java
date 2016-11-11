@@ -12,6 +12,7 @@ import java.util.Map;
 /**
  * Stores soft references.
  */
+@SuppressWarnings("unchecked")
 public class SimpleStore implements Store {
 
     private final Map<String, SoftReference<Object>> items =
@@ -34,7 +35,6 @@ public class SimpleStore implements Store {
     @Override
     public <T> T get(String key, T fallback) {
         if (items.containsKey(key)) {
-            //noinspection unchecked
             return (T) items.get(key).get();
         }
         return fallback;
@@ -43,7 +43,6 @@ public class SimpleStore implements Store {
     @Override
     public <T> T hardGet(String key, Do.Make<T> lazyValue) {
         if (items.containsKey(key)) {
-            //noinspection unchecked
             return (T) items.get(key).get();
         }
         synchronized (items) {

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/do_something"
+        android:title="hello" />
+
+    <item
+        android:id="@+id/request_coarse_location"
+        app:showAsAction="never"
+        android:title="Coarse location"
+        />
+
+    <item
+        android:id="@+id/request_fine_location"
+        app:showAsAction="never"
+        android:title="Fine location"
+        />
+
+    <item
+        android:id="@+id/request_read_contacts"
+        app:showAsAction="never"
+        android:title="Read contacts"
+        />
+
+    <item
+        android:id="@+id/request_combo"
+        app:showAsAction="never"
+        android:title="2-in-1"
+        />
+
+    <item
+        android:id="@+id/reset_permissions"
+        app:showAsAction="never"
+        android:title="Reset permissions"
+        />
+
+</menu>
