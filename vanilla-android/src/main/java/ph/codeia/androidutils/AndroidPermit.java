@@ -29,8 +29,8 @@ import ph.codeia.values.Do;
  * A {@link Permit} for marshmallow and above, implemented as a mutable builder.
  *
  * Can still (and should) be used before marshmallow, except it just calls the
- * allow callback immediately after {@link #granted(Runnable)} or throws if the
- * permission was not declared.
+ * allow callback immediately after {@link #granted(Runnable)} if the permission
+ * was declared in the manifest.
  */
 @Experimental
 public class AndroidPermit implements Permit {
@@ -44,6 +44,11 @@ public class AndroidPermit implements Permit {
         FalseStart(Sensitive delegate, List<String> appeal) {
             this.delegate = delegate;
             this.appeal = appeal;
+        }
+
+        @Override
+        public Iterator<String> iterator() {
+            return appeal.iterator();
         }
 
         @Override
@@ -69,11 +74,6 @@ public class AndroidPermit implements Permit {
         @Override
         public boolean apply(int code, String[] permissions, int[] grants) {
             return delegate.apply(code, permissions, grants);
-        }
-
-        @Override
-        public Iterator<String> iterator() {
-            return appeal.iterator();
         }
     }
 

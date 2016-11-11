@@ -37,7 +37,7 @@ import static org.hamcrest.CoreMatchers.*;
 
 @RunWith(AndroidJUnit4.class)
 @LargeTest
-public class AndroidPermissionsTest {
+public class AndroidPermitTest {
 
     private static final String PACKAGE = "ph.codeia.androidutilstests";
 
@@ -135,7 +135,7 @@ public class AndroidPermissionsTest {
     }
 
     @Test
-    public void multiple_allow() throws UiObjectNotFoundException, InterruptedException {
+    public void permission_set_all_allowed() throws UiObjectNotFoundException, InterruptedException {
         BlockingQueue<String> ok = observe(PermissionsActivity.GRANTED);
         openActionBarOverflowOrOptionsMenu(context);
         onView(withText("2-in-1")).perform(click());
@@ -146,7 +146,7 @@ public class AndroidPermissionsTest {
     }
 
     @Test
-    public void multilple_permissions_one_permanently_denied() throws UiObjectNotFoundException, InterruptedException {
+    public void permission_set_one_permanently_denied() throws UiObjectNotFoundException, InterruptedException {
         BlockingQueue<String> banned = observe(PermissionsActivity.DENIED);
         openActionBarOverflowOrOptionsMenu(context);
         onView(withText("2-in-1")).perform(click());
