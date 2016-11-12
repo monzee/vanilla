@@ -19,6 +19,7 @@ import ph.codeia.run.PassThrough;
 import ph.codeia.run.Runner;
 import ph.codeia.security.Permit;
 import ph.codeia.security.Sensitive;
+import ph.codeia.security.Synthetic;
 import ph.codeia.values.Do;
 
 /**
@@ -32,7 +33,6 @@ import ph.codeia.values.Do;
  * allow callback immediately after {@link #granted(Runnable)} if the permission
  * was declared in the manifest.
  */
-@Experimental
 public class AndroidPermit implements Permit {
 
     private static final AtomicInteger COUNTER = new AtomicInteger(1);
@@ -84,13 +84,13 @@ public class AndroidPermit implements Permit {
     private final Runner runner;
     @Nullable private Do.Just<Sensitive> onDeny;
 
-    public AndroidPermit(Context context, Activity client, Runner runner) {
+    AndroidPermit(Context context, Activity client, Runner runner) {
         this.context = context;
         this.client = client;
         this.runner = runner;
     }
 
-    public AndroidPermit(Context context, Activity client) {
+    AndroidPermit(Context context, Activity client) {
         this(context, client, PassThrough.RUNNER);
     }
 
@@ -166,7 +166,7 @@ public class AndroidPermit implements Permit {
                     if (primer.isEmpty()) {
                         reallySubmit(perms);
                     } else {
-                        onDeny.got(new FalseStart(this, primer));
+                        onDeny.got(new Synthetic(this, primer));
                     }
                 } else {
                     reallySubmit(perms);
