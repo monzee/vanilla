@@ -10,56 +10,75 @@ import android.view.MenuItem;
 import android.widget.TextView;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 import ph.codeia.androidutils.AndroidPermit;
 import ph.codeia.security.Permit;
 import ph.codeia.security.Sensitive;
 import ph.codeia.signal.Channel;
+import ph.codeia.signal.Links;
 import ph.codeia.signal.SimpleChannel;
 
 public class PermissionsActivity extends TestActivity {
 
-    public static final Channel<String> GRANTED = new SimpleChannel<>();
-    public static final Channel<String> APPEAL = new SimpleChannel<>();
-    public static final Channel<String> DENIED = new SimpleChannel<>();
+    static final Channel<String> COARSE = new SimpleChannel<>();
+    static final Channel<String> FINE = new SimpleChannel<>();
+    static final Channel<String> CONTACTS = new SimpleChannel<>();
+    static final Channel<String> EDGE_CASE = new SimpleChannel<>();
 
-    private Sensitive askCoarseLocation;
-    private Sensitive askFineLocation;
-    private Sensitive askReadContacts;
-    private Sensitive askAsk;
-    private Sensitive askPhoneCall;
+    final List<Sensitive> requests = new ArrayList<>();
+    private Channel.Link links;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         status = (TextView) findViewById(R.id.the_status);
-        askCoarseLocation = ask(Manifest.permission.ACCESS_COARSE_LOCATION)
-                .granted(() -> {
-                    tell("can get coarse");
-                    GRANTED.send(Manifest.permission.ACCESS_COARSE_LOCATION);
-                });
-        askFineLocation = ask(Manifest.permission.ACCESS_FINE_LOCATION)
-                .granted(() -> {
-                    tell("can get fine");
-                    GRANTED.send(Manifest.permission.ACCESS_FINE_LOCATION);
-                });
-        askReadContacts = ask(Manifest.permission.READ_CONTACTS)
-                .granted(() -> {
-                    tell("can read");
-                    GRANTED.send(Manifest.permission.READ_CONTACTS);
-                });
-        askAsk = ask(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.READ_CONTACTS)
-                .granted(() -> {
-                    tell("can locate and read");
-                    GRANTED.send(Manifest.permission.ACCESS_COARSE_LOCATION);
-                    GRANTED.send(Manifest.permission.READ_CONTACTS);
-                });
-        askPhoneCall = ask(Manifest.permission.CALL_PHONE)
-                .granted(() -> {
-                    tell("can phone");
-                    GRANTED.send(Manifest.permission.CALL_PHONE);
-                });
+        Collections.addAll(requests,
+                ask(Manifest.permission.ACCESS_COARSE_LOCATION)
+                        .granted(() -> COARSE.send("granted")),
+                ask(Manifest.permission.ACCESS_FINE_LOCATION)
+                        .granted(() -> FINE.send("granted")),
+                ask(Manifest.permission.READ_CONTACTS)
+                        .granted(() -> CONTACTS.send("granted")),
+                ask(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.READ_CONTACTS)
+                        .granted(() -> {
+                            COARSE.send("granted");
+                            CONTACTS.send("granted");
+                        }));
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        links = Links.of(
+                connect(COARSE, "coarse location"),
+                connect(FINE, "fine location"),
+                connect(CONTACTS, "read contacts"));
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        links.unlink();
+    }
+
+    private Channel.Link connect(Channel<String> channel, String desc) {
+        return channel.link(s -> {
+            switch (s) {
+                case "granted":
+                    tell("can access %s", desc);
+                    break;
+                case "appeal":
+                    tell("appealing %s", desc);
+                    break;
+                case "denied":
+                default:
+                    break;
+            }
+        });
     }
 
     @Override
@@ -73,13 +92,16 @@ public class PermissionsActivity extends TestActivity {
         tell("CHECK: %s", item.getTitle());
         switch (item.getItemId()) {
             case R.id.request_coarse_location:
-                askCoarseLocation.submit();
+                requests.get(0).submit();
                 return true;
             case R.id.request_fine_location:
-                askFineLocation.submit();
+                requests.get(1).submit();
                 return true;
             case R.id.request_read_contacts:
-                askReadContacts.submit();
+                requests.get(2).submit();
+                return true;
+            case R.id.request_combo:
+                requests.get(3).submit();
                 return true;
             case R.id.reset_permissions:
                 try {
@@ -87,12 +109,6 @@ public class PermissionsActivity extends TestActivity {
                 } catch (IOException e) {
                     tell(e.toString());
                 }
-                return true;
-            case R.id.request_combo:
-                askAsk.submit();
-                return true;
-            case R.id.do_something:
-                askPhoneCall.submit();
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
@@ -103,12 +119,7 @@ public class PermissionsActivity extends TestActivity {
     public void onRequestPermissionsResult(int requestCode,
                                            @NonNull String[] permissions,
                                            @NonNull int[] grantResults) {
-        for (Sensitive s : new Sensitive[] {
-                askCoarseLocation,
-                askFineLocation,
-                askReadContacts,
-                askAsk,
-        }) {
+        for (Sensitive s : requests) {
             if (s.apply(requestCode, permissions, grantResults)) {
                 return;
             }
@@ -116,14 +127,9 @@ public class PermissionsActivity extends TestActivity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
     }
 
-    private Permit ask(String... permissions) {
+    Permit ask(String... permissions) {
         return new AndroidPermit(this).ask(permissions).denied(appeal -> {
-            for (String denied : appeal) {
-                APPEAL.send(denied);
-            }
-            for (String banned : appeal.banned()) {
-                DENIED.send(banned);
-            }
+            onDeny(appeal);
             if (!appeal.isEmpty()) {
                 new AlertDialog.Builder(this)
                         .setTitle("Please?")
@@ -137,5 +143,39 @@ public class PermissionsActivity extends TestActivity {
                 tell("permanently denied:\n-  %s", TextUtils.join("\n-  ", appeal.banned()));
             }
         });
+    }
+
+    static void onDeny(Sensitive appeal) {
+        for (String s : appeal) switch (s) {
+            case Manifest.permission.ACCESS_COARSE_LOCATION:
+                COARSE.send("appeal");
+                break;
+            case Manifest.permission.ACCESS_FINE_LOCATION:
+                FINE.send("appeal");
+                break;
+            case Manifest.permission.READ_CONTACTS:
+                CONTACTS.send("appeal");
+                break;
+            default:
+                EDGE_CASE.send("appeal " + s);
+                break;
+        }
+        for (String s : appeal.banned()) switch (s) {
+            case Manifest.permission.ACCESS_COARSE_LOCATION:
+                COARSE.send("denied");
+                break;
+            case Manifest.permission.ACCESS_FINE_LOCATION:
+                FINE.send("denied");
+                break;
+            case Manifest.permission.READ_CONTACTS:
+                CONTACTS.send("denied");
+                break;
+            default:
+                EDGE_CASE.send("denied " + s);
+                break;
+        }
+        if (appeal.isEmpty() && appeal.banned().isEmpty()) {
+            EDGE_CASE.send("this should never happen");
+        }
     }
 }

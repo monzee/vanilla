@@ -19,7 +19,6 @@ import ph.codeia.values.Do;
  * submit the {@link Sensitive} object inside the deny callback or they might
  * loop forever.
  */
-@Experimental
 public interface Sensitive extends Iterable<String> {
 
     /**
