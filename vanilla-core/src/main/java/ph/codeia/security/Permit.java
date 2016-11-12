@@ -17,7 +17,6 @@ import ph.codeia.values.Do;
  * the app will be called back with an empty Sensitive. Once everything has
  * been granted, the granted callback will be invoked.
  */
-@Experimental
 public interface Permit {
 
     /**

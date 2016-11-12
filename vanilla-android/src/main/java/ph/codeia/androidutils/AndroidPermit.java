@@ -19,6 +19,7 @@ import ph.codeia.run.PassThrough;
 import ph.codeia.run.Runner;
 import ph.codeia.security.Permit;
 import ph.codeia.security.Sensitive;
+import ph.codeia.security.Synthetic;
 import ph.codeia.values.Do;
 
 /**
@@ -32,50 +33,9 @@ import ph.codeia.values.Do;
  * allow callback immediately after {@link #granted(Runnable)} if the permission
  * was declared in the manifest.
  */
-@Experimental
 public class AndroidPermit implements Permit {
 
     private static final AtomicInteger COUNTER = new AtomicInteger(1);
-
-    private static class FalseStart implements Sensitive {
-        private final Sensitive delegate;
-        private final List<String> appeal;
-
-        FalseStart(Sensitive delegate, List<String> appeal) {
-            this.delegate = delegate;
-            this.appeal = appeal;
-        }
-
-        @Override
-        public Iterator<String> iterator() {
-            return appeal.iterator();
-        }
-
-        @Override
-        public boolean isEmpty() {
-            return appeal.isEmpty();
-        }
-
-        @Override
-        public boolean contains(String permission) {
-            return appeal.contains(permission);
-        }
-
-        @Override
-        public Set<String> banned() {
-            return delegate.banned();
-        }
-
-        @Override
-        public void submit() {
-            delegate.submit();
-        }
-
-        @Override
-        public boolean apply(int code, String[] permissions, int[] grants) {
-            return delegate.apply(code, permissions, grants);
-        }
-    }
 
     private final Context context;
     private final Activity client;
@@ -84,13 +44,13 @@ public class AndroidPermit implements Permit {
     private final Runner runner;
     @Nullable private Do.Just<Sensitive> onDeny;
 
-    public AndroidPermit(Context context, Activity client, Runner runner) {
+    AndroidPermit(Context context, Activity client, Runner runner) {
         this.context = context;
         this.client = client;
         this.runner = runner;
     }
 
-    public AndroidPermit(Context context, Activity client) {
+    AndroidPermit(Context context, Activity client) {
         this(context, client, PassThrough.RUNNER);
     }
 
@@ -166,7 +126,7 @@ public class AndroidPermit implements Permit {
                     if (primer.isEmpty()) {
                         reallySubmit(perms);
                     } else {
-                        onDeny.got(new FalseStart(this, primer));
+                        onDeny.got(new Synthetic(this, primer));
                     }
                 } else {
                     reallySubmit(perms);
