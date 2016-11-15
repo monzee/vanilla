@@ -1,4 +1,4 @@
-# Vanilla [![Build Status](https://travis-ci.org/monzee/vanilla.svg?branch=master)](https://travis-ci.org/monzee/vanilla) [![Download](https://api.bintray.com/packages/monzee/jvm/vanilla-android/images/download.svg)](https://bintray.com/monzee/jvm/vanilla-android/_latestVersion)
+# Vanilla [![Build Status](https://travis-ci.org/monzee/vanilla.svg?branch=master)](https://travis-ci.org/monzee/vanilla) [![Download](https://api.bintray.com/packages/monzee/jvm/vanilla-android/images/download.svg)](https://bintray.com/monzee/jvm/vanilla-android/_latestVersion) [![Method count](https://img.shields.io/badge/Methods and size-core: 136 | deps: 244 | 16 KB-e91e63.svg)](http://www.methodscount.com/?lib=ph.codeia.vanilla%3Avanilla-android%3A0.3.0)
 
 A small library of little things I do all the time in android. Maybe you'll find
 them useful too.
