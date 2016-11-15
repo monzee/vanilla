@@ -12,8 +12,6 @@ import ph.codeia.values.Store;
 
 public class InterFragmentActivity extends TestActivity {
 
-    static final Channel<Boolean> READY = new SimpleChannel<>();
-
     private Channel.Link tell;
 
     @Override

@@ -5,12 +5,17 @@ import android.support.v7.app.AppCompatActivity;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import ph.codeia.signal.Channel;
+import ph.codeia.signal.SimpleChannel;
+
 /**
  * This file is a part of the vanilla project.
  *
  * @author mon
  */
 public class TestActivity extends AppCompatActivity {
+    static final Channel<Boolean> READY = new SimpleChannel<>();
+
     protected TextView status;
 
     protected void tell(@StringRes int tpl, Object... fmtArgs) {
