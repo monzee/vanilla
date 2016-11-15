@@ -119,4 +119,16 @@ public class AndroidLoaderStoreTest {
         assertNotSame(bar, store.get("foo", null));
     }
 
+    @Test
+    public void put_replaces_instance() {
+        InterFragmentActivity activity = rule.launchActivity(null);
+        Store store = new AndroidLoaderStore(activity);
+        Object foo = new Object();
+        Object bar = new Object();
+        store.put("foo", foo);
+        assertSame(foo, store.get("foo", null));
+        store.put("foo", bar);
+        assertSame(bar, store.get("foo", null));
+    }
+
 }
