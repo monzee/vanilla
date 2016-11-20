@@ -6,7 +6,7 @@ them useful too.
 ## Usage
 
 Here's a brief demonstration of the common use cases. All of these components
-implement generic, android platform-free interfaces that might be used to
+implement generic, Android platform-free interfaces that might be used to
 abstract concrete android code into junit-testable bits.
 
 
@@ -51,7 +51,7 @@ status.send("Button was clicked.");
 
 This becomes a lot more useful when the message sender and listeners are in different
 places. E.g. the listener is in an activity and the child fragments send events
-to it, or fragment to child fragments. The next component makes this possible.
+to it, or fragment to other fragments. The next component makes this possible.
 
 
 ### AndroidLoaderStore
@@ -148,6 +148,9 @@ solidified.
 
 
 ### AndroidPermit
+
+Android Marshmallow introduced a new security model that requires apps to ask
+permission from the user during runtime and not during installation.
 
 Declare your code that requires certain permissions. This has to be done early
 and unconditionally because it is possible for the activity to be killed and
@@ -275,25 +278,27 @@ I'll clean it up in the future.
 
 ## License
 
-> MIT License
->
-> Copyright (c) 2016 Mon Zafra
->
-> Permission is hereby granted, free of charge, to any person obtaining a copy
-> of this software and associated documentation files (the "Software"), to deal
-> in the Software without restriction, including without limitation the rights
-> to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-> copies of the Software, and to permit persons to whom the Software is
-> furnished to do so, subject to the following conditions:
->
-> The above copyright notice and this permission notice shall be included in all
-> copies or substantial portions of the Software.
->
-> THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-> IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-> FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-> AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-> LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-> OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-> SOFTWARE.
+```
+MIT License
+
+Copyright (c) 2016 Mon Zafra
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
 
