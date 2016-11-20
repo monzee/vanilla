@@ -14,7 +14,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import ph.codeia.meta.Experimental;
 import ph.codeia.run.PassThrough;
 import ph.codeia.run.Runner;
 import ph.codeia.security.Permit;
@@ -36,46 +35,6 @@ import ph.codeia.values.Do;
 public class AndroidPermit implements Permit {
 
     private static final AtomicInteger COUNTER = new AtomicInteger(1);
-
-    private static class FalseStart implements Sensitive {
-        private final Sensitive delegate;
-        private final List<String> appeal;
-
-        FalseStart(Sensitive delegate, List<String> appeal) {
-            this.delegate = delegate;
-            this.appeal = appeal;
-        }
-
-        @Override
-        public Iterator<String> iterator() {
-            return appeal.iterator();
-        }
-
-        @Override
-        public boolean isEmpty() {
-            return appeal.isEmpty();
-        }
-
-        @Override
-        public boolean contains(String permission) {
-            return appeal.contains(permission);
-        }
-
-        @Override
-        public Set<String> banned() {
-            return delegate.banned();
-        }
-
-        @Override
-        public void submit() {
-            delegate.submit();
-        }
-
-        @Override
-        public boolean apply(int code, String[] permissions, int[] grants) {
-            return delegate.apply(code, permissions, grants);
-        }
-    }
 
     private final Context context;
     private final Activity client;
