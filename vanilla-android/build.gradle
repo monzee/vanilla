@@ -1,9 +1,6 @@
 apply plugin: 'com.android.library'
 apply plugin: 'maven-publish'
 
-group = 'ph.codeia.vanilla'
-version = LIBRARY_VERSION
-
 android {
     compileSdkVersion 25
     buildToolsVersion '24.0.2'
@@ -30,65 +27,52 @@ dependencies {
 }
 
 publishing {
-    repositories {
-        maven {
-            name 'tmp'
-            url 'file:///tmp'
-        }
-
-        maven {
-            name 'bintray'
-            url 'https://api.bintray.com/maven/monzee/jvm/vanilla-android/'
-            credentials {
-                username = BINTRAY_USER
-                password = BINTRAY_API_KEY
-            }
+    repositories.maven {
+        name 'bintray'
+        url 'https://api.bintray.com/maven/monzee/jvm/vanilla-android/'
+        credentials {
+            username = BINTRAY_USER
+            password = BINTRAY_API_KEY
         }
     }
 
-    publications {
-        android.libraryVariants.all { variant ->
-            if (variant.buildType.name != 'release') {
-                return
+    android.libraryVariants.matching { it.buildType.name == 'release' }.all {
+        def stem = name.capitalize()
+        def allDeps = variantData.variantDependency.compileDependencies.with {
+            androidDependencies + jarDependencies
+        }
+        def docs = task("javadoc${stem}", type: Javadoc, group: 'documentation') {
+            source = javaCompile.source
+            classpath += javaCompile.classpath + files(android.bootClasspath)
+            title = 'Vanilla Android'
+            options {
+                links '../../../../vanilla-core/build/docs/javadoc'
+                links 'https://developer.android.com/reference'
+            }
+            exclude '**/BuildConfig.java'
+            exclude '**/R.java'
+        }.dependsOn javaCompile, ':vanilla-core:javadoc'
+
+        publications.create(name, MavenPublication) {
+            artifact source: outputs[0].outputFile, builtBy: assemble
+
+            artifact task("jar${stem}Sources", type: Jar, group: 'publishing') {
+                classifier 'sources'
+                from javaCompile.source
             }
 
-            def name = variant.name
-            def deps = variant.variantData.variantDependency.compileDependencies
-            def allDeps = deps.androidDependencies + deps.jarDependencies
-            def javac = variant.javaCompile
-            def docs = task("doc-$name", type: Javadoc, group: 'documentation') {
-                source = javac.source
-                classpath += javac.classpath + files(android.bootClasspath)
-                title = 'Vanilla Android'
-                options {
-                    links '../../../../vanilla-core/build/docs/javadoc'
-                    links 'https://developer.android.com/reference'
-                }
-                exclude '**/BuildConfig.java'
-                exclude '**/R.java'
-            }.dependsOn javac, ':vanilla-core:javadoc'
+            artifact task("jar${stem}Javadoc", type: Jar, dependsOn: docs, group: 'publishing') {
+                classifier 'javadoc'
+                from docs.destinationDir
+            }
 
-            "$name"(MavenPublication) {
-                artifact source: variant.outputs[0].outputFile, builtBy: variant.assemble
-
-                artifact task("source-$name", type: Jar, group: 'publishing') {
-                    classifier 'sources'
-                    from javac.source
-                }
-
-                artifact task("docjar-$name", type: Jar, dependsOn: docs, group: 'publishing') {
-                    classifier 'javadoc'
-                    from docs.destinationDir
-                }
-
-                pom.withXml {
-                    def node = asNode().appendNode('dependencies')
-                    allDeps.findAll { !it.provided }.resolvedCoordinates.each {
-                        def n = node.appendNode('dependency')
-                        n.appendNode('groupId', it.groupId)
-                        n.appendNode('artifactId', it.artifactId)
-                        n.appendNode('version', it.version)
-                    }
+            pom.withXml {
+                def node = asNode().appendNode('dependencies')
+                allDeps.findAll { !it.provided }.resolvedCoordinates.each {
+                    def dep = node.appendNode('dependency')
+                    dep.appendNode('groupId', it.groupId)
+                    dep.appendNode('artifactId', it.artifactId)
+                    dep.appendNode('version', it.version)
                 }
             }
         }

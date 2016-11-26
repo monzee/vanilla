@@ -163,7 +163,7 @@ private Sensitive accessLocation;
   // ...
   accessLocation = new AndroidPermit(this)
       .ask(Manifest.permission.ACCESS_FINE_LOCATION /* add more here, it's variadic */)
-      // or you can call #ask(String...) again
+      // or you can call #ask(String...) again to add more.
 
       .denied(appeal -> {
         if (!appeal.isEmpty()) {
@@ -174,7 +174,7 @@ private Sensitive accessLocation;
 
           // this is just an example. you can do whatever you want as long as
           // you don't unconditionally call #submit() because that would be
-          // very annoying to the user.
+          // very annoying to the user and would likely lead to a permanent deny.
           explain(""
               + "I need these permissions to proceed: "
               + TextUtils.join(", ", appeal),
@@ -191,6 +191,9 @@ private Sensitive accessLocation;
           // with a partial grant. here we just show a toast saying we
           // cannot proceed.
           tell("go to your device settings if you changed your mind.");
+
+          // NEVER CALL appeal.submit() IN THIS BRANCH! i should probably
+          // enforce this, actually.
         }
       })
 
@@ -199,11 +202,11 @@ private Sensitive accessLocation;
 }
 
 private void displayLocation() {
-  // you can get the location now.
+  // will only be called if the user granted the permissions
 }
 
 private void tell(String message) {
-  // Toast.make etc etc show()
+  Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
 }
 
 private void explain(String message, Runnable ok) {
