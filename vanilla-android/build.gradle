@@ -67,12 +67,25 @@ publishing {
             }
 
             pom.withXml {
-                def node = asNode().appendNode('dependencies')
-                allDeps.findAll { !it.provided }.resolvedCoordinates.each {
-                    def dep = node.appendNode('dependency')
-                    dep.appendNode('groupId', it.groupId)
-                    dep.appendNode('artifactId', it.artifactId)
-                    dep.appendNode('version', it.version)
+                def contents = asNode().children().last()
+                contents + pomMetadata(
+                        name: 'Vanilla Android',
+                        description: 'Android implementation of vanilla-core interfaces',
+                        url: 'https://github.com/monzee/vanilla')
+                contents + deps(allDeps.findAll { !it.provided }.resolvedCoordinates)
+            }
+        }
+    }
+}
+
+def deps(coordinates) {
+    node {
+        dependencies {
+            coordinates.each { dep ->
+                dependency {
+                    groupId dep.groupId
+                    artifactId dep.artifactId
+                    version dep.version
                 }
             }
         }
