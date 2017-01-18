@@ -3,7 +3,7 @@ apply plugin: 'maven-publish'
 
 android {
     compileSdkVersion 25
-    buildToolsVersion '24.0.2'
+    buildToolsVersion '25.0.2'
 
     defaultConfig {
         minSdkVersion 11
@@ -23,7 +23,7 @@ android {
 
 dependencies {
     compile project(':vanilla-core')
-    provided 'com.android.support:appcompat-v7:25.0.0'
+    provided 'com.android.support:appcompat-v7:25.1.0'
 }
 
 publishing {
@@ -41,7 +41,10 @@ publishing {
         def allDeps = variantData.variantDependency.compileDependencies.with {
             androidDependencies + jarDependencies
         }
-        def docs = task("javadoc${stem}", type: Javadoc, group: 'documentation') {
+        def docs = task("javadoc${stem}",
+                dependsOn: ':vanilla-core:javadoc',
+                type: Javadoc,
+                group: 'documentation') {
             source = javaCompile.source
             classpath += javaCompile.classpath + files(android.bootClasspath)
             title = 'Vanilla Android'
@@ -51,7 +54,7 @@ publishing {
             }
             exclude '**/BuildConfig.java'
             exclude '**/R.java'
-        }.dependsOn javaCompile, ':vanilla-core:javadoc'
+        }
 
         publications.create(name, MavenPublication) {
             artifact source: outputs[0].outputFile, builtBy: assemble
@@ -72,20 +75,19 @@ publishing {
                         name: 'Vanilla Android',
                         description: 'Android implementation of vanilla-core interfaces',
                         url: 'https://github.com/monzee/vanilla')
-                contents + deps(allDeps.findAll { !it.provided }.resolvedCoordinates)
-            }
-        }
-    }
-}
-
-def deps(coordinates) {
-    node {
-        dependencies {
-            coordinates.each { dep ->
-                dependency {
-                    groupId dep.groupId
-                    artifactId dep.artifactId
-                    version dep.version
+                contents + node {
+                    dependencies {
+                        allDeps.each { dep ->
+                            dependency {
+                                groupId dep.resolvedCoordinates.groupId
+                                artifactId dep.resolvedCoordinates.artifactId
+                                version dep.resolvedCoordinates.version
+                                if (dep.provided) {
+                                    scope 'provided'
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
