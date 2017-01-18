@@ -1,15 +1,11 @@
-// Top-level build file where you can add configuration options common to all sub-projects/modules.
-
 buildscript {
     repositories {
         jcenter()
     }
+
     dependencies {
         classpath 'com.android.tools.build:gradle:2.2.2'
         classpath 'me.tatarka:gradle-retrolambda:3.2.5'
-
-        // NOTE: Do not place your application dependencies here; they belong
-        // in the individual module build.gradle files
     }
 }
 
@@ -17,8 +13,46 @@ allprojects {
     repositories {
         jcenter()
     }
+
+    group = 'ph.codeia.vanilla'
+    version = LIBRARY_VERSION
 }
 
 task clean(type: Delete) {
     delete rootProject.buildDir
+}
+
+def node(Closure c) {
+    c.resolveStrategy = Closure.DELEGATE_FIRST
+    c
+}
+
+def pomMetadata(meta) {
+    node {
+        ['name', 'description', 'url'].each { it in meta && "$it"(meta[it]) }
+
+        developers {
+            developer {
+                id 'monzee'
+                name 'Mon Zafra'
+                email 'mz@codeia.ph'
+                organization 'Codeia Inc'
+                organizationUrl 'https://codeia.ph'
+            }
+        }
+
+        licenses {
+            license {
+                name 'MIT License'
+                url 'https://mit-license.org/license.txt'
+                distribution 'repo'
+            }
+        }
+
+        scm {
+            url 'https://github.com/monzee/vanilla'
+            connection 'scm:git:https://github.com/monzee/vanilla.git'
+            developerConnection 'scm:git:ssh://git@github.com:monzee/vanilla.git'
+        }
+    }
 }

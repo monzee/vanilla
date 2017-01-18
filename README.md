@@ -6,7 +6,7 @@ them useful too.
 ## Usage
 
 Here's a brief demonstration of the common use cases. All of these components
-implement generic, android platform-free interfaces that might be used to
+implement generic, Android platform-free interfaces that might be used to
 abstract concrete android code into junit-testable bits.
 
 
@@ -51,7 +51,7 @@ status.send("Button was clicked.");
 
 This becomes a lot more useful when the message sender and listeners are in different
 places. E.g. the listener is in an activity and the child fragments send events
-to it, or fragment to child fragments. The next component makes this possible.
+to it, or fragment to other fragments. The next component makes this possible.
 
 
 ### AndroidLoaderStore
@@ -149,6 +149,9 @@ solidified.
 
 ### AndroidPermit
 
+Android Marshmallow introduced a new security model that requires apps to ask
+permission from the user during runtime and not during installation.
+
 Declare your code that requires certain permissions. This has to be done early
 and unconditionally because it is possible for the activity to be killed and
 recreated before you actually receive the grants.
@@ -160,7 +163,7 @@ private Sensitive accessLocation;
   // ...
   accessLocation = new AndroidPermit(this)
       .ask(Manifest.permission.ACCESS_FINE_LOCATION /* add more here, it's variadic */)
-      // or you can call #ask(String...) again
+      // or you can call #ask(String...) again to add more.
 
       .denied(appeal -> {
         if (!appeal.isEmpty()) {
@@ -171,7 +174,7 @@ private Sensitive accessLocation;
 
           // this is just an example. you can do whatever you want as long as
           // you don't unconditionally call #submit() because that would be
-          // very annoying to the user.
+          // very annoying to the user and would likely lead to a permanent deny.
           explain(""
               + "I need these permissions to proceed: "
               + TextUtils.join(", ", appeal),
@@ -188,6 +191,9 @@ private Sensitive accessLocation;
           // with a partial grant. here we just show a toast saying we
           // cannot proceed.
           tell("go to your device settings if you changed your mind.");
+
+          // NEVER CALL appeal.submit() IN THIS BRANCH! i should probably
+          // enforce this, actually.
         }
       })
 
@@ -196,11 +202,11 @@ private Sensitive accessLocation;
 }
 
 private void displayLocation() {
-  // you can get the location now.
+  // will only be called if the user granted the permissions
 }
 
 private void tell(String message) {
-  // Toast.make etc etc show()
+  Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
 }
 
 private void explain(String message, Runnable ok) {
@@ -275,25 +281,27 @@ I'll clean it up in the future.
 
 ## License
 
-> MIT License
->
-> Copyright (c) 2016 Mon Zafra
->
-> Permission is hereby granted, free of charge, to any person obtaining a copy
-> of this software and associated documentation files (the "Software"), to deal
-> in the Software without restriction, including without limitation the rights
-> to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-> copies of the Software, and to permit persons to whom the Software is
-> furnished to do so, subject to the following conditions:
->
-> The above copyright notice and this permission notice shall be included in all
-> copies or substantial portions of the Software.
->
-> THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-> IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-> FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-> AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-> LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-> OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-> SOFTWARE.
+```
+MIT License
+
+Copyright (c) 2016 Mon Zafra
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
 
