@@ -38,8 +38,8 @@ publishing {
 
     android.libraryVariants.matching { it.buildType.name == 'release' }.all {
         def stem = name.capitalize()
-        def allDeps = variantData.variantDependency.compileDependencies.with {
-            androidDependencies + jarDependencies
+        def (allDeps, provided) = variantData.variantDependency.compileDependencies.with {
+            [directAndroidDependencies + directJavaDependencies, providedList]
         }
         def docs = task("javadoc${stem}",
                 dependsOn: ':vanilla-core:javadoc',
@@ -79,10 +79,10 @@ publishing {
                     dependencies {
                         allDeps.each { dep ->
                             dependency {
-                                groupId dep.resolvedCoordinates.groupId
-                                artifactId dep.resolvedCoordinates.artifactId
-                                version dep.resolvedCoordinates.version
-                                if (dep.provided) {
+                                groupId dep.coordinates.groupId
+                                artifactId dep.coordinates.artifactId
+                                version dep.coordinates.version
+                                if (dep.coordinates.toString() in provided) {
                                     scope 'provided'
                                 }
                             }

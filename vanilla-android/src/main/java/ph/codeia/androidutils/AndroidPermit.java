@@ -128,12 +128,7 @@ public class AndroidPermit implements Permit {
         /**
          * Shortcut for {@code o.make().ask(int, String...)}
          *
-         * Like {@link #make()}, this should not be called before the fragment
-         * is attached to the activity.
-         *
-         * @param id Unique identifier for this permission set
-         * @param permissions List of permissions to ask
-         * @return a wrapped AndroidPermit instance
+         * @see #make()
          */
         public Permit ask(int id, String... permissions) {
             return make().ask(id, permissions);
@@ -142,11 +137,7 @@ public class AndroidPermit implements Permit {
         /**
          * Shortcut for {@code o.make().ask(String...)}
          *
-         * Like {@link #make()}, this should not be called before the fragment
-         * is attached to the activity.
-         *
-         * @param permissions list of permissions to ask
-         * @return a wrapped AndroidPermit instance
+         * @see #make()
          */
         public Permit ask(String... permissions) {
             return make().ask(permissions);
