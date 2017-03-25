@@ -31,7 +31,7 @@ public class AggregatedPermissionsActivity extends TestActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         status = (TextView) findViewById(R.id.the_status);
-        AndroidPermit.Host permits = AndroidPermit.host(getSupportFragmentManager());
+        AndroidPermit.Helper permits = AndroidPermit.of(getSupportFragmentManager());
         permits.setDeniedCallback(appeal -> {
             PermissionsActivity.onDeny(appeal);
             if (!appeal.isEmpty()) {
@@ -93,7 +93,7 @@ public class AggregatedPermissionsActivity extends TestActivity {
                 contacts.submit();
                 return true;
             case R.id.request_combo:
-                AndroidPermit.host(this)
+                AndroidPermit.of(this)
                         .ask(Manifest.permission.ACCESS_COARSE_LOCATION,
                                 Manifest.permission.READ_CONTACTS)
                         .granted(() -> {

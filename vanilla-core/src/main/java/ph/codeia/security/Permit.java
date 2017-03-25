@@ -25,16 +25,8 @@ public interface Permit {
      * runnable passed to {@link #granted(Runnable)} will be invoked
      * immediately when {@link Sensitive#submit()} is called.
      *
-     * @param id Unique identifier for the permission set.
      * @param permissions The permissions to ask.
      * @return a builder object, probably this
-     */
-    Permit ask(int id, String... permissions);
-
-    /**
-     * Calls {@link #ask(int, String...)} with an auto-generated id.
-     *
-     * @see #ask(int, String...)
      */
     Permit ask(String... permissions);
 

@@ -9,6 +9,7 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentManager;
+import android.util.SparseArray;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -48,12 +49,13 @@ public class AndroidPermit implements Permit {
      * {@link #onRequestPermissionsResult(int, String[], int[])} in your
      * activity or fragment.
      *
-     * NEVER INSTANTIATE DIRECTLY; use {@link #host(FragmentManager)}.
+     * NEVER INSTANTIATE DIRECTLY; use any of the {@code #of} static methods.
      */
-    public static class Host extends Fragment {
-        private static final String TAG = Host.class.getCanonicalName();
+    public static class Helper extends Fragment {
+        private static final String TAG = Helper.class.getCanonicalName();
 
-        private final List<Sensitive> requests = new ArrayList<>();
+        private final AtomicInteger counter = new AtomicInteger(32768);
+        private final SparseArray<Sensitive> requests = new SparseArray<>();
         private Runner runner = PassThrough.RUNNER;
         private Do.Just<Sensitive> onDeny;
 
@@ -92,17 +94,12 @@ public class AndroidPermit implements Permit {
         /**
          * Create a {@link Permit} object.
          *
+         * @param code Unique identifier for this permission set
          * @return wraps an AndroidPermit instance
          */
-        public Permit make() {
+        public Permit make(final int code) {
             return new Permit() {
-                Permit p = new AndroidPermit(Host.this, runner).denied(onDeny);
-
-                @Override
-                public Permit ask(int id, String... permissions) {
-                    p = p.ask(id, permissions);
-                    return this;
-                }
+                Permit p = new AndroidPermit(Helper.this, runner, code).denied(onDeny);
 
                 @Override
                 public Permit ask(String... permissions) {
@@ -119,19 +116,28 @@ public class AndroidPermit implements Permit {
                 @Override
                 public Sensitive granted(Runnable block) {
                     Sensitive s = p.granted(block);
-                    requests.add(s);
+                    requests.put(code, s);
                     return s;
                 }
             };
         }
 
         /**
-         * Shortcut for {@code o.make().ask(int, String...)}
+         * Creates a wrapped AndroidPermit with an auto generated id.
          *
-         * @see #make()
+         * @see #make(int)
          */
-        public Permit ask(int id, String... permissions) {
-            return make().ask(id, permissions);
+        public Permit make() {
+            return make(counter.getAndIncrement());
+        }
+
+        /**
+         * Shortcut for {@code o.make(int).ask(String...)}
+         *
+         * @see #make(int)
+         */
+        public Permit ask(int code, String... permissions) {
+            return make(code).ask(permissions);
         }
 
         /**
@@ -144,8 +150,8 @@ public class AndroidPermit implements Permit {
         }
 
         @Override
-        public void onStop() {
-            super.onStop();
+        public void onDetach() {
+            super.onDetach();
             requests.clear();
         }
 
@@ -154,10 +160,9 @@ public class AndroidPermit implements Permit {
                 int requestCode,
                 @NonNull String[] permissions,
                 @NonNull int[] grantResults) {
-            for (Sensitive s : requests) {
-                if (s.apply(requestCode, permissions, grantResults)) {
-                    return;
-                }
+            Sensitive s = requests.get(requestCode);
+            if (s != null && s.apply(requestCode, permissions, grantResults)) {
+                return;
             }
             super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         }
@@ -165,33 +170,33 @@ public class AndroidPermit implements Permit {
     }
 
     /**
-     * Ensures only one instance of {@link Host} is attached to the activity.
+     * Ensures only one instance of {@link Helper} is attached to the activity.
      *
      * @param fm does not work with platform fragment managers. You shouldn't
      *           be using those anyway.
      * @return an AndroidPermit factory
      */
-    public static Host host(FragmentManager fm) {
-        Fragment f = fm.findFragmentByTag(Host.TAG);
+    public static Helper of(FragmentManager fm) {
+        Fragment f = fm.findFragmentByTag(Helper.TAG);
         if (f == null) {
-            f = new Host();
-            fm.beginTransaction().add(f, Host.TAG).commitNow();
+            f = new Helper();
+            fm.beginTransaction().add(f, Helper.TAG).commitNow();
         }
-        return (Host) f;
+        return (Helper) f;
     }
 
     /**
-     * @see #host(FragmentManager)
+     * @see #of(FragmentManager)
      */
-    public static Host host(FragmentActivity activity) {
-        return host(activity.getSupportFragmentManager());
+    public static Helper of(FragmentActivity activity) {
+        return of(activity.getSupportFragmentManager());
     }
 
     /**
-     * @see #host(FragmentManager)
+     * @see #of(FragmentManager)
      */
-    public static Host host(Fragment fragment) {
-        return host(fragment.getFragmentManager());
+    public static Helper of(Fragment fragment) {
+        return of(fragment.getFragmentManager());
     }
 
     private interface Client {
@@ -202,21 +207,20 @@ public class AndroidPermit implements Permit {
         }
     }
 
-    private static final AtomicInteger COUNTER = new AtomicInteger(1);
-
     private final Context context;
     private final Client client;
     private final Set<String> permissions = new LinkedHashSet<>();
     private final Runner runner;
+    private final int code;
     @Nullable private Do.Just<Sensitive> onDeny;
-    private int code = COUNTER.getAndIncrement();
 
-    public AndroidPermit(Activity activity) {
-        this(activity, PassThrough.RUNNER);
+    public AndroidPermit(Activity activity, int code) {
+        this(activity, PassThrough.RUNNER, code);
     }
 
-    public AndroidPermit(final Activity activity, Runner runner) {
+    public AndroidPermit(final Activity activity, Runner runner, int code) {
         this.runner = runner;
+        this.code = code;
         context = activity.getApplicationContext();
         client = new Client() {
             @Override
@@ -226,12 +230,13 @@ public class AndroidPermit implements Permit {
         };
     }
 
-    public AndroidPermit(Fragment fragment) {
-        this(fragment, PassThrough.RUNNER);
+    public AndroidPermit(Fragment fragment, int code) {
+        this(fragment, PassThrough.RUNNER, code);
     }
 
-    public AndroidPermit(final Fragment fragment, Runner runner) {
+    public AndroidPermit(final Fragment fragment, Runner runner, int code) {
         this.runner = runner;
+        this.code = code;
         context = fragment.getContext();
         client = new Client() {
             @Override
@@ -239,12 +244,6 @@ public class AndroidPermit implements Permit {
                 some.fragment(fragment);
             }
         };
-    }
-
-    @Override
-    public Permit ask(int id, String... permissions) {
-        code = id;
-        return ask(permissions);
     }
 
     @Override
@@ -268,7 +267,7 @@ public class AndroidPermit implements Permit {
             }
         });
         return new Sensitive() {
-            private final Set<String> permaDenied = new LinkedHashSet<>();
+            private final Set<String> banned = new LinkedHashSet<>();
             private boolean canRequestNow = false;
 
             @Override
@@ -288,7 +287,7 @@ public class AndroidPermit implements Permit {
 
             @Override
             public Set<String> banned() {
-                return permaDenied;
+                return banned;
             }
 
             @Override
@@ -328,11 +327,11 @@ public class AndroidPermit implements Permit {
                     if (allowed || !canAppeal(permission)) {
                         AndroidPermit.this.permissions.remove(permission);
                         if (!allowed) {
-                            permaDenied.add(permission);
+                            banned.add(permission);
                         }
                     }
                 }
-                if (isEmpty() && permaDenied.isEmpty()) {
+                if (isEmpty() && banned.isEmpty()) {
                     onAllow.got(null);
                 } else if (onDeny != null) {
                     onDeny.got(this);
@@ -353,7 +352,7 @@ public class AndroidPermit implements Permit {
                             client.requestPermissions(permissions, code);
                         }
                     });
-                } else if (permaDenied.isEmpty()) {
+                } else if (banned.isEmpty()) {
                     onAllow.got(null);
                 } else if (onDeny != null) {
                     onDeny.got(this);
@@ -363,7 +362,7 @@ public class AndroidPermit implements Permit {
     }
 
     private boolean canAppeal(final String permission) {
-        class Union implements Client.Case {
+        return new Client.Case() {
             boolean result;
 
             boolean result() {
@@ -380,8 +379,7 @@ public class AndroidPermit implements Permit {
             public void fragment(Fragment client) {
                 result = client.shouldShowRequestPermissionRationale(permission);
             }
-        }
-        return new Union().result();
+        }.result();
     }
 
     private boolean allowed(String permission) {

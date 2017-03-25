@@ -113,137 +113,111 @@ You can put any object in the store. There's no need to implement `Parcelable`
 or `Serializable`.
 
 
-### AndroidRunner
-
-Somewhat like an `Executor` but runs functions that take and return values rather than
-plain `Runnable`s and `Callable`s. `AndroidChannel` uses `AndroidRunner.UI` to
-run the listeners in a main looper handler. It also offers additional lazy static async
-runners that calls a function in a background thread and executes the
-continuation in the UI thread.
-
-```java
-// - This uses AsyncTask's static thread pool executor. The other async runner is
-//   called AndroidRunner.ASYNC_SERIAL and enqueues the background tasks in one
-//   thread.
-// - This is a Lazy<T> object. It will only be created once. Later calls will
-//   return the same instance. Same with ASYNC_SERIAL.
-AndroidRunner.ASYNC_POOL.get()
-    .<String>apply(next -> {
-      // this function will be called in the background. feel free to block the thread.
-      String result = longRunningTask();
-      // uses CPS. Do not return the result, call the continuation with it.
-      next.got(result);
-    })
-    .begin(result -> {
-      // this will be called in the UI thread
-      view.show(result);
-    });
-```
-
-It's basically a more abstract `AsyncTask`. I use its base interface in my
-presenters/use cases and pass synchronous runners in my tests. It is possible to
-do some interesting things like joining parallel calls, memoization, looping or
-even jumping to labelled blocks. They will be documented once the interface has
-solidified.
-
-
 ### AndroidPermit
 
 Android Marshmallow introduced a new security model that requires apps to ask
 permission from the user during runtime and not during installation.
 
-Declare your code that requires certain permissions. This has to be done early
-and unconditionally because it is possible for the activity to be killed and
-recreated before you actually receive the grants.
+There are two ways to ask permissions: the sloppy way and the proper way. Both
+involve getting a reference to `AndroidPermit.Helper`, a headless fragment that
+stores all permission sets being requested by an activity or fragment  and
+dispatches the appropriate callback depending on the user response.
 
 ```java
-private Sensitive accessLocation;
-
-@Override protected void onStart() {
-  // ...
-  accessLocation = new AndroidPermit(this)
-      .ask(Manifest.permission.ACCESS_FINE_LOCATION /* add more here, it's variadic */)
-      // or you can call #ask(String...) again to add more.
-
-      .denied(appeal -> {
-        if (!appeal.isEmpty()) {
-
-          // show rationale. you can iterate over the appeal object to get all
-          // the denied permissions, or call #contains(String) to query if the
-          // appeal includes a specific permission.
-
-          // this is just an example. you can do whatever you want as long as
-          // you don't unconditionally call #submit() because that would be
-          // very annoying to the user and would likely lead to a permanent deny.
-          explain(""
-              + "I need these permissions to proceed: "
-              + TextUtils.join(", ", appeal),
-
-              // ask permission again only when the dialog ok button is hit.
-              // we give up if the dialog was dismissed any other way.
-              appeal::submit);
-        } else {
-
-          // at least one permission was permanently denied. call #banned() to
-          // get them as a set.
-
-          // depending on your use case, you might be able to proceed even
-          // with a partial grant. here we just show a toast saying we
-          // cannot proceed.
-          tell("go to your device settings if you changed your mind.");
-
-          // NEVER CALL appeal.submit() IN THIS BRANCH! i should probably
-          // enforce this, actually.
-        }
-      })
-
-      // the actual action
-      .granted(this::displayLocation);
-}
-
-private void displayLocation() {
-  // will only be called if the user granted the permissions
-}
-
-private void tell(String message) {
-  Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
-}
-
-private void explain(String message, Runnable ok) {
-  new AlertDialog.Builder(this)
-      .setTitle("Please?")
-      .setMessage(message)
-      .setPositiveButton("Ask me again", (dialog, id) -> ok.run())
-      .create()
-      .show();
-}
+// You should never instantiate the helper fragment directly. Always use the
+// static factory. You can call it anytime after #onStart()
+AndroidPermit.Helper permits = AndroidPermit.of(this);
 ```
 
-Submit the grant request:
+#### The sloppy way
+
+You can ask the permission just before you call the priviledged method:
 
 ```java
-@OnClick(R.id.do_show_location) void doShowLocation() {
-  accessLocation.submit();
-}
+// We're in a button click handler somewhere.
+
+permits
+        // The #ask() method can take a variable number of string arguments.
+        .ask(Manifest.permission.READ_CONTACTS)
+
+        // Called when one or more permissions were denied by the user. You'd
+        // probably want to display a rationale here and show the user a button
+        // to resubmit the request
+        .denied(appeal -> {
+            // The appeal object is a string iterable containing all permissions
+            // that were "soft-denied" by the user. If appeal#isEmpty() is true,
+            // it means all permissions were permanently denied (i.e. the user
+            // checked "Never ask me again" and clicked the "Deny" button on the
+            // dialog). When that happens, you should never call appeal#submit()
+            // because you would be stuck in an infinite loop. TODO: i should
+            // actually enforce this.
+            if (!appeal.isEmpty()) {
+                // I do not provide a way to display a rationale. You can do
+                // whatever you want as long as you don't unconditionally call
+                // appeal#submit() because that would be extremely annoying.
+                // You should always give the user an option to ignore your
+                // appeal.
+                showDialog(
+                        "Rationale",
+                        "I need these: " + TextUtils.join(", ", appeal),
+                        appeal::submit);
+            } else {
+                // Depending on your use case, you might be able to do something
+                // even with a partial grant. You can check which permissions
+                // were permanently denied with appeal#banned().
+                tell("oh well, i guess i'm doing nothing then.");
+            }
+        })
+
+        // Called when every permission in the set is granted by the user
+        .granted(this::displayContacts)
+
+        // Check the permission status and call either the denied or granted
+        // callback. If the permission was already previously granted, the
+        // granted callback would be immediately called here.
+        .submit();
 ```
 
-Delegate to the `Sensitive` action when the user responds to the request:
+That's it. You don't have to override `#onRequestPermissionsResult` or annotate
+anything. You don't need to track the request codes. The helper fragment does it
+all for you.
+
+This is sloppy because when the phone is rotated while the permission
+dialog is visible, the dialog will remain visible and the response will take
+effect, but the callbacks would be lost. The user would have to redo the action
+that triggered the permission request in the first place.
+
+#### The proper way
+
+The proper way to request permissions is to declare them very early, probably
+during `#onCreate`. Note that you only have to _declare_ them early, not submit.
+This way, the callbacks are restored after rotation and the fragment can invoke
+one of them when the permissions dialog is dismissed.
 
 ```java
-@Override
-public void onRequestPermissionsResult(
-    int requestCode,
-    @NonNull String[] permissions,
-    @NonNull int[] grantResults
-) {
-  if (!accessLocation.apply(requestCode, permissions, grantResults)) {
-    super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-  }
-}
-```
+// We're in #onCreate(Bundle)
 
-If you have many `Sensitive` actions, you'll need to call them one-by-one until
-something returns true.
+// this Sensitive object must be declared as member variable
+displayContactsRequest = permits
+        .ask(Manifest.permission.READ_CONTACTS)
+        .denied(/* ... */)
+        .granted(this::displayContacts);
+```
+> There's no guarantee that the generated integer codes would match. If all
+> permits are declared in the same place, there's a good chance they would. If
+> you find that they don't match, you can specify an id by calling `#ask` with
+> an integer argument (e.g. `ask(123, PERMISSION_1, PERMISSION_2)`)
+
+You then call `#submit` on this object in a UI event handler:
+
+```java
+// In a click handler
+displayContactsRequest.submit();
+```
+This has the disadvantage of needing to declare fields for every permission set
+and having the action being far away from where it actually happens. This is
+why this is presented merely as an option. The permission dialog appear so
+infrequently that I think it's often times fine to use the sloppy style.
 
 
 ## Installation
@@ -263,7 +237,7 @@ Retrolambda is highly recommended.
 
 ```gradle
 plugins {
-    id 'me.tatarka.retrolambda' version '3.2.5'
+    id 'me.tatarka.retrolambda' version '3.3.1'
 }
 ```
 
@@ -284,7 +258,7 @@ I'll clean it up in the future.
 ```
 MIT License
 
-Copyright (c) 2016 Mon Zafra
+Copyright (c) 2016-17 Mon Zafra
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

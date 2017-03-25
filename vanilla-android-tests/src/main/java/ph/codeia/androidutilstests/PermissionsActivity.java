@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import ph.codeia.androidutils.AndroidPermit;
 import ph.codeia.security.Permit;
@@ -29,6 +30,7 @@ public class PermissionsActivity extends TestActivity {
     static final Channel<String> EDGE_CASE = new SimpleChannel<>();
 
     final List<Sensitive> requests = new ArrayList<>();
+    final AtomicInteger counter = new AtomicInteger(1);
     private Channel.Link links;
 
     @Override
@@ -128,7 +130,8 @@ public class PermissionsActivity extends TestActivity {
     }
 
     Permit ask(String... permissions) {
-        return new AndroidPermit(this).ask(permissions).denied(appeal -> {
+        int code = counter.getAndIncrement();
+        return new AndroidPermit(this, code).ask(permissions).denied(appeal -> {
             onDeny(appeal);
             if (!appeal.isEmpty()) {
                 new AlertDialog.Builder(this)
