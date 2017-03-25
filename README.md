@@ -120,7 +120,7 @@ permission from the user during runtime and not during installation.
 
 There are two ways to ask permissions: the sloppy way and the proper way. Both
 involve getting a reference to `AndroidPermit.Helper`, a headless fragment that
-stores all permission sets being requested by an activity or fragment  and
+stores all permission sets being requested by an activity or fragment and
 dispatches the appropriate callback depending on the user response.
 
 ```java
@@ -131,51 +131,52 @@ AndroidPermit.Helper permits = AndroidPermit.of(this);
 
 #### The sloppy way
 
-You can ask the permission just before you call the priviledged method:
+You can simply ask permission just before you call the priviledged method:
 
 ```java
 // We're in a button click handler somewhere.
 
 permits
-        // The #ask() method can take a variable number of string arguments.
-        .ask(Manifest.permission.READ_CONTACTS)
+    // The #ask() method can take a variable number of string arguments.
+    .ask(Manifest.permission.READ_CONTACTS)
 
-        // Called when one or more permissions were denied by the user. You'd
-        // probably want to display a rationale here and show the user a button
-        // to resubmit the request
-        .denied(appeal -> {
-            // The appeal object is a string iterable containing all permissions
-            // that were "soft-denied" by the user. If appeal#isEmpty() is true,
-            // it means all permissions were permanently denied (i.e. the user
-            // checked "Never ask me again" and clicked the "Deny" button on the
-            // dialog). When that happens, you should never call appeal#submit()
-            // because you would be stuck in an infinite loop. TODO: i should
-            // actually enforce this.
-            if (!appeal.isEmpty()) {
-                // I do not provide a way to display a rationale. You can do
-                // whatever you want as long as you don't unconditionally call
-                // appeal#submit() because that would be extremely annoying.
-                // You should always give the user an option to ignore your
-                // appeal.
-                showDialog(
-                        "Rationale",
-                        "I need these: " + TextUtils.join(", ", appeal),
-                        appeal::submit);
-            } else {
-                // Depending on your use case, you might be able to do something
-                // even with a partial grant. You can check which permissions
-                // were permanently denied with appeal#banned().
-                tell("oh well, i guess i'm doing nothing then.");
-            }
-        })
+    // Called when one or more permissions were denied by the user. You'd
+    // probably want to display a rationale here and show the user a button
+    // to resubmit the request
+    .denied(appeal -> {
+      // The appeal object is a string iterable containing all permissions
+      // that were "soft-denied" by the user. If appeal#isEmpty() is true,
+      // it means some or none of the permissions were granted but at least one
+      // of them was permanently denied (i.e. the user checked "Never ask me
+      // again" and clicked the "Deny" button on the dialog). When that
+      // happens, you should never call appeal#submit() because you would
+      // be stuck in an infinite loop of denial and despair. This would
+      // most likely happen in the UI thread too which makes it even worse.
+      // TODO: i should actually detect and prevent this.
+      if (!appeal.isEmpty()) {
+        // I do not provide a way to display a rationale. You can do
+        // whatever you want as long as you don't unconditionally call
+        // appeal#submit() because that would be extremely annoying.
+        // You should always give the user an option to ignore your
+        // appeal.
+        showDialog(
+            "Rationale",
+            "I need these: " + TextUtils.join(", ", appeal),
+            appeal::submit);
+      } else {
+        // Depending on your use case, you might be able to do something
+        // even with a partial grant. You can check which permissions
+        // were permanently denied with appeal#banned().
+        tell("oh well, i guess i'm doing nothing then.");
+      }
+    })
 
-        // Called when every permission in the set is granted by the user
-        .granted(this::displayContacts)
+    // Called when every permission in the set is granted by the user
+    .granted(this::displayContacts)
 
-        // Check the permission status and call either the denied or granted
-        // callback. If the permission was already previously granted, the
-        // granted callback would be immediately called here.
-        .submit();
+    // Check the permission status and call either the denied or granted
+    // callback.
+    .submit();
 ```
 
 That's it. You don't have to override `#onRequestPermissionsResult` or annotate
@@ -199,9 +200,9 @@ one of them when the permissions dialog is dismissed.
 
 // this Sensitive object must be declared as member variable
 displayContactsRequest = permits
-        .ask(Manifest.permission.READ_CONTACTS)
-        .denied(/* ... */)
-        .granted(this::displayContacts);
+    .ask(Manifest.permission.READ_CONTACTS)
+    .denied(/* ... */)  // denied callbacks are optional, by the way.
+    .granted(this::displayContacts);
 ```
 > There's no guarantee that the generated integer codes would match. If all
 > permits are declared in the same place, there's a good chance they would. If
@@ -214,10 +215,12 @@ You then call `#submit` on this object in a UI event handler:
 // In a click handler
 displayContactsRequest.submit();
 ```
+
 This has the disadvantage of needing to declare fields for every permission set
-and having the action being far away from where it actually happens. This is
-why this is presented merely as an option. The permission dialog appear so
-infrequently that I think it's often times fine to use the sloppy style.
+and having the action declared far away from where it actually happens. I am not
+a big fan of that, that's why this is presented merely as an option. The
+permission dialog appears so infrequently that I think it's often times fine to
+use the sloppy style.
 
 
 ## Installation
@@ -237,7 +240,7 @@ Retrolambda is highly recommended.
 
 ```gradle
 plugins {
-    id 'me.tatarka.retrolambda' version '3.3.1'
+    id 'me.tatarka.retrolambda' version '3.6.0'
 }
 ```
 

@@ -99,7 +99,7 @@ public class AndroidPermit implements Permit {
          */
         public Permit make(final int code) {
             return new Permit() {
-                Permit p = new AndroidPermit(Helper.this, runner, code).denied(onDeny);
+                Permit p = new AndroidPermit(Helper.this, code, runner).denied(onDeny);
 
                 @Override
                 public Permit ask(String... permissions) {
@@ -215,10 +215,10 @@ public class AndroidPermit implements Permit {
     @Nullable private Do.Just<Sensitive> onDeny;
 
     public AndroidPermit(Activity activity, int code) {
-        this(activity, PassThrough.RUNNER, code);
+        this(activity, code, PassThrough.RUNNER);
     }
 
-    public AndroidPermit(final Activity activity, Runner runner, int code) {
+    public AndroidPermit(final Activity activity, int code, Runner runner) {
         this.runner = runner;
         this.code = code;
         context = activity.getApplicationContext();
@@ -231,10 +231,10 @@ public class AndroidPermit implements Permit {
     }
 
     public AndroidPermit(Fragment fragment, int code) {
-        this(fragment, PassThrough.RUNNER, code);
+        this(fragment, code, PassThrough.RUNNER);
     }
 
-    public AndroidPermit(final Fragment fragment, Runner runner, int code) {
+    public AndroidPermit(final Fragment fragment, int code, Runner runner) {
         this.runner = runner;
         this.code = code;
         context = fragment.getContext();
