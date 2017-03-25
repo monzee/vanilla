@@ -1,6 +1,5 @@
 package ph.codeia.security;
 
-import ph.codeia.meta.Experimental;
 import ph.codeia.values.Do;
 
 /**
@@ -10,8 +9,8 @@ import ph.codeia.values.Do;
 /**
  * A permission model that resembles android M's runtime permissions.
  *
- * The idea is that the app initially requests a set of permissions. The user
- * can grant all or some of them. If not all was granted, the app should then
+ * The application initially asks the user a set of permissions. The user
+ * can grant all or some of them. If some were denied, the app would then
  * receive another {@link Sensitive} object with the permissions that were
  * denied and are appealable. If none of the denied permissions are appealable,
  * the app will be called back with an empty Sensitive. Once everything has
@@ -26,8 +25,16 @@ public interface Permit {
      * runnable passed to {@link #granted(Runnable)} will be invoked
      * immediately when {@link Sensitive#submit()} is called.
      *
+     * @param id Unique identifier for the permission set.
      * @param permissions The permissions to ask.
      * @return a builder object, probably this
+     */
+    Permit ask(int id, String... permissions);
+
+    /**
+     * Calls {@link #ask(int, String...)} with an auto-generated id.
+     *
+     * @see #ask(int, String...)
      */
     Permit ask(String... permissions);
 
