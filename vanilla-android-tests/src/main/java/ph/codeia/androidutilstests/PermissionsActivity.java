@@ -122,7 +122,8 @@ public class PermissionsActivity extends TestActivity {
                                            @NonNull String[] permissions,
                                            @NonNull int[] grantResults) {
         for (Sensitive s : requests) {
-            if (s.apply(requestCode, permissions, grantResults)) {
+            if (s.check(requestCode, permissions, grantResults)) {
+                s.dispatch();
                 return;
             }
         }

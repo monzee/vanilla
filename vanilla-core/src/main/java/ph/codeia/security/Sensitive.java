@@ -2,7 +2,6 @@ package ph.codeia.security;
 
 import java.util.Set;
 
-import ph.codeia.meta.Experimental;
 import ph.codeia.values.Do;
 
 /**
@@ -60,8 +59,23 @@ public interface Sensitive extends Iterable<String> {
      * @param permissions The list of permissions.
      * @param grants Each int indicates whether the permission at the same
      *               index was granted or denied.
-     * @return whether or not this object handled this permission response
+     * @return whether or not this object can handle this permission response
      */
-    boolean apply(int code, String[] permissions, int[] grants);
+    boolean check(int code, String[] permissions, int[] grants);
+
+    /**
+     * Applies the result of the permission check.
+     *
+     * This should only be called when {@link #check(int, String[], int[])}
+     * returns true.
+     *
+     * The check is separated from the dispatch because of a peculiarity in
+     * Android M with regard to fragment transactions. It seems impossible by
+     * design to commit a fragment transaction inside the
+     * #onRequestPermissionsResult method because it is too early. You need to
+     * defer them until #onResume. It is possible to do #commitAllowingStateLoss
+     * but that sounds scary (even the docs say so).
+     */
+    void dispatch();
 
 }

@@ -11,11 +11,13 @@ import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentManager;
 import android.util.SparseArray;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -54,8 +56,10 @@ public class AndroidPermit implements Permit {
     public static class Helper extends Fragment {
         private static final String TAG = Helper.class.getCanonicalName();
 
-        private final AtomicInteger counter = new AtomicInteger(32768);
+        private final AtomicInteger counter = new AtomicInteger(1 << 15);
         private final SparseArray<Sensitive> requests = new SparseArray<>();
+        // is it possible to have >1 requests active at the same time?
+        private final Queue<Sensitive> dispatchable = new ArrayDeque<>();
         private Runner runner = PassThrough.RUNNER;
         private Do.Just<Sensitive> onDeny;
 
@@ -81,9 +85,9 @@ public class AndroidPermit implements Permit {
          * Set the default denied callback for all created {@link Sensitive}
          * objects.
          *
-         * You can call {@link #denied(Do.Just)} on the individual
-         * {@link Permit} objects before calling {@link #granted(Runnable)}
-         * to change their deny handlers.
+         * You can change the individual deny handlers by calling
+         * {@link #denied(Do.Just)} on the {@link Permit} objects before
+         * calling {@link #granted(Runnable)}.
          *
          * @param onDeny see {@link Permit#denied(Do.Just)}
          */
@@ -150,6 +154,14 @@ public class AndroidPermit implements Permit {
         }
 
         @Override
+        public void onResume() {
+            super.onResume();
+            for (Iterator<Sensitive> it = dispatchable.iterator(); it.hasNext(); it.remove()) {
+                it.next().dispatch();
+            }
+        }
+
+        @Override
         public void onDetach() {
             super.onDetach();
             requests.clear();
@@ -161,7 +173,8 @@ public class AndroidPermit implements Permit {
                 @NonNull String[] permissions,
                 @NonNull int[] grantResults) {
             Sensitive s = requests.get(requestCode);
-            if (s != null && s.apply(requestCode, permissions, grantResults)) {
+            if (s != null && s.check(requestCode, permissions, grantResults)) {
+                dispatchable.add(s);
                 return;
             }
             super.onRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -268,7 +281,7 @@ public class AndroidPermit implements Permit {
         });
         return new Sensitive() {
             private final Set<String> banned = new LinkedHashSet<>();
-            private boolean canRequestNow = false;
+            private boolean readyToRequest = false;
 
             @Override
             public Iterator<String> iterator() {
@@ -292,14 +305,18 @@ public class AndroidPermit implements Permit {
 
             @Override
             public void submit() {
+                if (isEmpty() && !banned.isEmpty()) {
+                    throw new UnsupportedOperationException(
+                            "You should not resubmit an empty Sensitive object.");
+                }
                 for (Iterator<String> it = permissions.iterator(); it.hasNext();) {
                     if (allowed(it.next())) {
                         it.remove();
                     }
                 }
                 String[] perms = permissions.toArray(new String[permissions.size()]);
-                if (!canRequestNow && onDeny != null) {
-                    canRequestNow = true;
+                if (!readyToRequest && onDeny != null) {
+                    readyToRequest = true;
                     List<String> primer = new ArrayList<>();
                     for (String p : perms) {
                         if (canAppeal(p)) {
@@ -317,8 +334,8 @@ public class AndroidPermit implements Permit {
             }
 
             @Override
-            public boolean apply(int code, String[] permissions, int[] grants) {
-                if (AndroidPermit.this.code != code) {
+            public boolean check(int code, String[] permissions, int[] grants) {
+                if (AndroidPermit.this.code != code || permissions.length == 0) {
                     return false;
                 }
                 for (int i = 0; i < permissions.length; i++) {
@@ -331,12 +348,17 @@ public class AndroidPermit implements Permit {
                         }
                     }
                 }
+                return true;
+            }
+
+            @Override
+            public void dispatch() {
                 if (isEmpty() && banned.isEmpty()) {
                     onAllow.got(null);
                 } else if (onDeny != null) {
+                    readyToRequest = true;
                     onDeny.got(this);
                 }
-                return true;
             }
 
             private void reallySubmit(final String[] permissions) {

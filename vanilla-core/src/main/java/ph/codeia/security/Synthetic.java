@@ -59,8 +59,12 @@ public class Synthetic implements Sensitive {
     }
 
     @Override
-    public boolean apply(int code, String[] permissions, int[] grants) {
-        return delegate.apply(code, permissions, grants);
+    public boolean check(int code, String[] permissions, int[] grants) {
+        return delegate.check(code, permissions, grants);
     }
 
+    @Override
+    public void dispatch() {
+        delegate.dispatch();
+    }
 }
