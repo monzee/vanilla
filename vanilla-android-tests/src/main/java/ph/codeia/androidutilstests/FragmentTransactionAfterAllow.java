@@ -15,7 +15,10 @@ import android.widget.TextView;
 import java.io.IOException;
 
 import ph.codeia.androidutils.AndroidPermit;
+import ph.codeia.meta.StrawMan;
+import ph.codeia.security.Permission;
 
+@StrawMan
 public class FragmentTransactionAfterAllow extends AppCompatActivity {
 
     public static class Priviledged extends Fragment {
@@ -42,11 +45,7 @@ public class FragmentTransactionAfterAllow extends AppCompatActivity {
         setContentView(R.layout.activity_fragment_transaction_after_allow);
         findViewById(R.id.do_ask).setOnClickListener(_v -> AndroidPermit.of(this)
                 .ask(Manifest.permission.READ_CONTACTS)
-                .denied(appeal -> {
-                    if (!appeal.isEmpty()) {
-                        appeal.submit();
-                    }
-                })
+                .before(Permission.Appeal::submit)
                 .granted(() -> getSupportFragmentManager()
                         .beginTransaction()
                         .replace(R.id.root, new Priviledged())

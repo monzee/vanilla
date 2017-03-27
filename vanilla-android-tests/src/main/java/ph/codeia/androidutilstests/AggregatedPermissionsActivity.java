@@ -12,10 +12,12 @@ import android.widget.TextView;
 import java.io.IOException;
 
 import ph.codeia.androidutils.AndroidPermit;
-import ph.codeia.security.Sensitive;
+import ph.codeia.meta.StrawMan;
+import ph.codeia.security.Permit;
 import ph.codeia.signal.Channel;
 import ph.codeia.signal.Links;
 
+@StrawMan
 public class AggregatedPermissionsActivity extends TestActivity {
 
     private static final int ASK_COARSE = 1;
@@ -24,7 +26,7 @@ public class AggregatedPermissionsActivity extends TestActivity {
     private static final int ASK_ALL = 4;
 
     private Channel.Link links;
-    private Sensitive coarse, fine, contacts, combo;
+    private Permit coarse, fine, contacts, combo;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -32,21 +34,16 @@ public class AggregatedPermissionsActivity extends TestActivity {
         setContentView(R.layout.activity_main);
         status = (TextView) findViewById(R.id.the_status);
         AndroidPermit.Helper permits = AndroidPermit.of(getSupportFragmentManager());
-        permits.setDeniedCallback(appeal -> {
-            PermissionsActivity.onDeny(appeal);
-            if (!appeal.isEmpty()) {
-                new AlertDialog.Builder(this)
-                        .setTitle("Please?")
-                        .setMessage(""
-                                + "I need these permissions to continue:\n-  "
-                                + TextUtils.join("\n-  ", appeal))
-                        .setPositiveButton("Ask me again", (dialog, id) -> appeal.submit())
-                        .create()
-                        .show();
-            } else {
-                tell("permanently denied:\n-  %s", TextUtils.join("\n-  ", appeal.banned()));
-            }
-        });
+        permits.setBefore(appeal -> new AlertDialog.Builder(this)
+                .setTitle("Please?")
+                .setMessage(""
+                        + "I need these permissions to continue:\n-  "
+                        + TextUtils.join("\n-  ", appeal.permissions()))
+                .setPositiveButton("Ask me again", (dialog, id) -> appeal.submit())
+                .create()
+                .show());
+        permits.setAfter(response ->
+                tell("permanently denied:\n-  %s", TextUtils.join("\n-  ", response.rejected())));
         coarse = permits
                 .ask(ASK_COARSE, Manifest.permission.ACCESS_COARSE_LOCATION)
                 .granted(() -> PermissionsActivity.COARSE.send("granted"));

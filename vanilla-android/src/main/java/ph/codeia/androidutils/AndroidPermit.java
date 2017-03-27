@@ -3,29 +3,24 @@ package ph.codeia.androidutils;
 import android.app.Activity;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.annotation.RequiresApi;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentManager;
 import android.util.SparseArray;
 
-import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Iterator;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Queue;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import ph.codeia.run.PassThrough;
-import ph.codeia.run.Runner;
+import ph.codeia.meta.Untested;
 import ph.codeia.security.Permit;
-import ph.codeia.security.Sensitive;
-import ph.codeia.security.Synthetic;
+import ph.codeia.security.Permission;
 import ph.codeia.values.Do;
 
 /**
@@ -33,131 +28,125 @@ import ph.codeia.values.Do;
  */
 
 /**
- * A {@link Permit} for marshmallow and above, implemented as a mutable builder.
+ * An {@link Permit.Builder} for Marshmallow and above.
  *
- * Can still (and should) be used before marshmallow, except it just calls the
+ * Can still (and should) be used before Marshmallow, except it just calls the
  * allow callback immediately after {@link #granted(Runnable)} if the permission
  * was declared in the manifest.
  */
-public class AndroidPermit implements Permit {
+@Untested
+public class AndroidPermit implements Permit.Builder, Permission.Adapter {
 
     /**
      * Headless fragment that produces Permits and attaches to the permission
      * response hook.
      *
-     * Intended for screens that needs multiple sets of permissions on different
-     * actions. You might want to use this anyway even for a single permission
-     * because it saves you from overriding
-     * {@link #onRequestPermissionsResult(int, String[], int[])} in your
-     * activity or fragment.
-     *
      * NEVER INSTANTIATE DIRECTLY; use any of the {@code #of} static methods.
      */
     public static class Helper extends Fragment {
         private static final String TAG = Helper.class.getCanonicalName();
-
+        /**
+         * uses the last half of usable numbers to make collisions unlikely
+         */
         private final AtomicInteger counter = new AtomicInteger(1 << 15);
-        private final SparseArray<Sensitive> requests = new SparseArray<>();
-        // is it possible to have >1 requests active at the same time?
-        private final Queue<Sensitive> dispatchable = new ArrayDeque<>();
-        private Runner runner = PassThrough.RUNNER;
-        private Do.Just<Sensitive> onDeny;
+        private final SparseArray<Permit> requests = new SparseArray<>();
+        @Nullable private Do.Just<Permission.Appeal> beforeFallback;
+        @Nullable private Do.Just<Permission.Denial> afterFallback;
+        @Nullable private Permit deferred;
 
         /**
-         * Change the context under which the denied/granted callbacks run.
+         * Sets the default appeal callback.
          *
-         * If the permissions were already previously granted or permanently
-         * denied, the callbacks would be run in the same thread where
-         * {@link Sensitive#submit()} was called. You should call this method
-         * with {@link AndroidRunner#UI} if you need to update the UI in the
-         * callbacks. If all your {@link Sensitive#submit()}} calls are in the
-         * UI thread, there's no need to call this but there's no harm in
-         * doing so aside from becoming slightly less efficient.
-         *
-         * @param runner used to wrap the {@link #denied(Do.Just)} and
-         *               {@link #granted(Runnable)} callbacks
+         * @param block Procedure to run before submitting a request.
          */
-        public void setRunner(Runner runner) {
-            this.runner = runner;
+        public void setBefore(Do.Just<Permission.Appeal> block) {
+            beforeFallback = block;
         }
 
         /**
-         * Set the default denied callback for all created {@link Sensitive}
-         * objects.
+         * Sets the default denied callback.
          *
-         * You can change the individual deny handlers by calling
-         * {@link #denied(Do.Just)} on the {@link Permit} objects before
-         * calling {@link #granted(Runnable)}.
-         *
-         * @param onDeny see {@link Permit#denied(Do.Just)}
+         * @param block Procedure to run when at least one permission was
+         *              denied by the user.
          */
-        public void setDeniedCallback(Do.Just<Sensitive> onDeny) {
-            this.onDeny = onDeny;
+        public void setAfter(Do.Just<Permission.Denial> block) {
+            afterFallback = block;
         }
 
         /**
-         * Create a {@link Permit} object.
+         * Wraps an {@link AndroidPermit} instance to remember all
+         * {@link Permit} objects associated with a client.
          *
-         * @param code Unique identifier for this permission set
-         * @return wraps an AndroidPermit instance
+         * @param code Number that uniquely identifies this permission set.
+         * @return a permit builder wrapping {@link AndroidPermit}
          */
-        public Permit make(final int code) {
-            return new Permit() {
-                Permit p = new AndroidPermit(Helper.this, code, runner).denied(onDeny);
+        public Permit.Builder make(final int code) {
+            return new Permit.Builder() {
+                Permit.Builder b = new AndroidPermit(Helper.this, code)
+                        .before(beforeFallback)
+                        .after(afterFallback);
 
                 @Override
-                public Permit ask(String... permissions) {
-                    p = p.ask(permissions);
+                public Permit.Builder ask(String... permissions) {
+                    b = b.ask(permissions);
                     return this;
                 }
 
                 @Override
-                public Permit denied(Do.Just<Sensitive> block) {
-                    p = p.denied(block);
+                public Permit.Builder before(Do.Just<Permission.Appeal> block) {
+                    b = b.before(block);
                     return this;
                 }
 
                 @Override
-                public Sensitive granted(Runnable block) {
-                    Sensitive s = p.granted(block);
-                    requests.put(code, s);
-                    return s;
+                public Permit.Builder after(Do.Just<Permission.Denial> block) {
+                    b = b.after(block);
+                    return this;
+                }
+
+                @Override
+                public Permit granted(Runnable block) {
+                    Permit p = b.granted(block);
+                    requests.put(code, p);
+                    return p;
                 }
             };
         }
 
         /**
-         * Creates a wrapped AndroidPermit with an auto generated id.
-         *
-         * @see #make(int)
+         * @return see {@link #make(int)}
          */
-        public Permit make() {
+        public Permit.Builder make() {
             return make(counter.getAndIncrement());
         }
 
         /**
-         * Shortcut for {@code o.make(int).ask(String...)}
+         * Shortcut for {@code make().ask(String...)}
          *
-         * @see #make(int)
+         * @param permissions The permissions to ask the user.
+         * @return see {@link Permit.Builder#ask(String...)}
          */
-        public Permit ask(int code, String... permissions) {
-            return make(code).ask(permissions);
+        public Permit.Builder ask(String... permissions) {
+            return make().ask(permissions);
         }
 
         /**
-         * Shortcut for {@code o.make().ask(String...)}
+         * Shortcut for {@code make(int).ask(String...)}
          *
-         * @see #make()
+         * @param code Unique code for this permission set.
+         * @param permissions The permissions to ask.
+         * @return see {@link Permit.Builder#ask(String...)}
          */
-        public Permit ask(String... permissions) {
-            return make().ask(permissions);
+        public Permit.Builder ask(int code, String... permissions) {
+            return make(code).ask(permissions);
         }
 
         @Override
         public void onResume() {
             super.onResume();
-            for (Iterator<Sensitive> it = dispatchable.iterator(); it.hasNext(); it.remove()) {
-                it.next().dispatch();
+            if (deferred != null) {
+                deferred.dispatch();
+                deferred = null;
             }
         }
 
@@ -165,6 +154,7 @@ public class AndroidPermit implements Permit {
         public void onDetach() {
             super.onDetach();
             requests.clear();
+            deferred = null;
         }
 
         @Override
@@ -172,22 +162,26 @@ public class AndroidPermit implements Permit {
                 int requestCode,
                 @NonNull String[] permissions,
                 @NonNull int[] grantResults) {
-            Sensitive s = requests.get(requestCode);
-            if (s != null && s.check(requestCode, permissions, grantResults)) {
-                dispatchable.add(s);
+            Permit p = requests.get(requestCode);
+            if (p != null && p.check(requestCode, permissions, grantResults)) {
+                deferred = p;
                 return;
             }
             super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         }
-
     }
+
 
     /**
      * Ensures only one instance of {@link Helper} is attached to the activity.
      *
-     * @param fm does not work with platform fragment managers. You shouldn't
-     *           be using those anyway.
-     * @return an AndroidPermit factory
+     * @param fm Does not work with platform fragment managers because that
+     *           means copy-pasted code. You should construct {@link
+     *           AndroidPermit} directly and delegate to it in
+     *           #onRequestPermissionsResult.
+     * @return a fragment that builds {@link Permit.Builder} objects.
+     * @see #AndroidPermit(android.app.Fragment, int) if you are using
+     * platform fragments.
      */
     public static Helper of(FragmentManager fm) {
         Fragment f = fm.findFragmentByTag(Helper.TAG);
@@ -199,14 +193,22 @@ public class AndroidPermit implements Permit {
     }
 
     /**
-     * @see #of(FragmentManager)
+     * @param activity Provides a FragmentManager to attach the fragment to.
+     *                 Can't use platform activities here either. You will need
+     *                 to construct your own permit with
+     *                 {@link #AndroidPermit(Activity, int)}.
+     * @return see {@link #of(FragmentManager)}
+     * @see #AndroidPermit(android.app.Fragment, int); same situation applies
+     * when using platform activities instead of compat.
      */
     public static Helper of(FragmentActivity activity) {
         return of(activity.getSupportFragmentManager());
     }
 
     /**
-     * @see #of(FragmentManager)
+     * @param fragment Uses its parent's FM. Call {@link #of(FragmentManager)}
+     *                 if you need/want to use a child FM.
+     * @return see {@link #of(FragmentManager)}
      */
     public static Helper of(Fragment fragment) {
         return of(fragment.getFragmentManager());
@@ -217,173 +219,184 @@ public class AndroidPermit implements Permit {
         interface Case {
             void activity(Activity client);
             void fragment(Fragment client);
+            void platformFragment(android.app.Fragment client);
         }
     }
 
     private final Context context;
     private final Client client;
-    private final Set<String> permissions = new LinkedHashSet<>();
-    private final Runner runner;
     private final int code;
-    @Nullable private Do.Just<Sensitive> onDeny;
+    private final Set<String> permissionNames = new HashSet<>();
+    @Nullable private Do.Just<Permission.Appeal> before;
+    @Nullable private Do.Just<Permission.Denial> after;
 
-    public AndroidPermit(Activity activity, int code) {
-        this(activity, code, PassThrough.RUNNER);
-    }
-
-    public AndroidPermit(final Activity activity, int code, Runner runner) {
-        this.runner = runner;
-        this.code = code;
-        context = activity.getApplicationContext();
-        client = new Client() {
+    /**
+     * @param client The object to call permission checks and requests on.
+     * @param code Unique identifier
+     */
+    public AndroidPermit(final Activity client, int code) {
+        this.client = new Client() {
             @Override
             public void match(Case some) {
-                some.activity(activity);
+                some.activity(client);
             }
         };
-    }
-
-    public AndroidPermit(Fragment fragment, int code) {
-        this(fragment, code, PassThrough.RUNNER);
-    }
-
-    public AndroidPermit(final Fragment fragment, int code, Runner runner) {
-        this.runner = runner;
         this.code = code;
-        context = fragment.getContext();
-        client = new Client() {
+        context = client.getApplicationContext();
+    }
+
+    /**
+     * @param client The object to call permission checks and requests on.
+     * @param code Unique identifier
+     */
+    public AndroidPermit(final Fragment client, int code) {
+        this.client = new Client() {
             @Override
             public void match(Case some) {
-                some.fragment(fragment);
+                some.fragment(client);
             }
         };
+        this.code = code;
+        context = client.getContext();
+    }
+
+    /**
+     * When using platform fragments, you get no help from the library. You
+     * will have to declare {@link Permit} members, submit them and override
+     * {@link android.app.Fragment#onRequestPermissionsResult(int, String[], int[])}
+     * where you need to call {@link Permit#check(int, String[], int[])} and
+     * {@link Permit#dispatch()}.
+     *
+     * @param client Platform fragment.
+     * @param code Unique identifier.
+     */
+    @RequiresApi(api = Build.VERSION_CODES.M)
+    public AndroidPermit(final android.app.Fragment client, int code) {
+        this.client = new Client() {
+            @Override
+            public void match(Case some) {
+                some.platformFragment(client);
+            }
+        };
+        this.code = code;
+        this.context = client.getContext();
     }
 
     @Override
-    public Permit ask(String... permissions) {
-        Collections.addAll(this.permissions, permissions);
+    public Permit.Builder ask(String... permissions) {
+        Collections.addAll(permissionNames, permissions);
         return this;
     }
 
     @Override
-    public Permit denied(Do.Just<Sensitive> block) {
-        onDeny = runner.run(block);
+    public Permit.Builder before(Do.Just<Permission.Appeal> block) {
+        before = block;
         return this;
     }
 
     @Override
-    public Sensitive granted(final Runnable block) {
-        final Do.Just<Void> onAllow = runner.run(new Do.Just<Void>() {
-            @Override
-            public void got(Void value) {
-                block.run();
-            }
-        });
-        return new Sensitive() {
-            private final Set<String> banned = new LinkedHashSet<>();
-            private boolean readyToRequest = false;
+    public Permit.Builder after(Do.Just<Permission.Denial> block) {
+        after = block;
+        return this;
+    }
 
-            @Override
-            public Iterator<String> iterator() {
-                return permissions.iterator();
-            }
+    @Override
+    public Permit granted(final Runnable block) {
+        return new Permit() {
+            Permission is = new Permission(permissionNames, AndroidPermit.this);
 
-            @Override
-            public boolean isEmpty() {
-                return permissions.isEmpty();
-            }
+            void sendRequest() {
+                client.match(new Client.Case() {
+                    final String[] request = is.pending
+                            .toArray(new String[is.pending.size()]);
 
-            @Override
-            public boolean contains(String permission) {
-                return permissions.contains(permission);
-            }
+                    @Override
+                    public void activity(Activity client) {
+                        ActivityCompat.requestPermissions(client, request, code);
+                    }
 
-            @Override
-            public Set<String> banned() {
-                return banned;
+                    @Override
+                    public void fragment(Fragment client) {
+                        client.requestPermissions(request, code);
+                    }
+
+                    @Override
+                    public void platformFragment(android.app.Fragment client) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                            client.requestPermissions(request, code);
+                        } else {
+                            // all permissions are allowed at install time for
+                            // old versions, so this is safe.
+                            block.run();
+                        }
+                    }
+                });
             }
 
             @Override
             public void submit() {
-                if (isEmpty() && !banned.isEmpty()) {
-                    throw new UnsupportedOperationException(
-                            "You should not resubmit an empty Sensitive object.");
-                }
-                for (Iterator<String> it = permissions.iterator(); it.hasNext();) {
-                    if (allowed(it.next())) {
-                        it.remove();
-                    }
-                }
-                String[] perms = permissions.toArray(new String[permissions.size()]);
-                if (!readyToRequest && onDeny != null) {
-                    readyToRequest = true;
-                    List<String> primer = new ArrayList<>();
-                    for (String p : perms) {
-                        if (canAppeal(p)) {
-                            primer.add(p);
+                is.refresh();
+                if (is.allGranted()) {
+                    block.run();
+                } else if (before != null && is.someAppealable()) {
+                    before.got(new Permission.Appeal() {
+                        @Override
+                        public Set<String> permissions() {
+                            return is.appealable;
                         }
-                    }
-                    if (primer.isEmpty()) {
-                        reallySubmit(perms);
-                    } else {
-                        onDeny.got(new Synthetic(this, primer));
-                    }
+
+                        @Override
+                        public void submit() {
+                            sendRequest();
+                        }
+                    });
                 } else {
-                    reallySubmit(perms);
+                    sendRequest();
                 }
             }
 
             @Override
-            public boolean check(int code, String[] permissions, int[] grants) {
-                if (AndroidPermit.this.code != code || permissions.length == 0) {
+            public boolean check(int code, String[] names, int[] grants) {
+                if (AndroidPermit.this.code != code || names.length == 0) {
                     return false;
                 }
-                for (int i = 0; i < permissions.length; i++) {
-                    boolean allowed = allowed(grants[i]);
-                    String permission = permissions[i];
-                    if (allowed || !canAppeal(permission)) {
-                        AndroidPermit.this.permissions.remove(permission);
-                        if (!allowed) {
-                            banned.add(permission);
-                        }
-                    }
-                }
+                is = is.fold(names, grants);
                 return true;
             }
 
             @Override
             public void dispatch() {
-                if (isEmpty() && banned.isEmpty()) {
-                    onAllow.got(null);
-                } else if (onDeny != null) {
-                    readyToRequest = true;
-                    onDeny.got(this);
-                }
-            }
-
-            private void reallySubmit(final String[] permissions) {
-                if (permissions.length > 0) {
-                    client.match(new Client.Case() {
+                if (is.allGranted()) {
+                    block.run();
+                } else if (after != null) {
+                    after.got(new Permission.Denial() {
                         @Override
-                        public void activity(Activity client) {
-                            ActivityCompat.requestPermissions(client, permissions, code);
+                        public Set<String> denied() {
+                            return is.appealable;
                         }
 
                         @Override
-                        public void fragment(Fragment client) {
-                            client.requestPermissions(permissions, code);
+                        public Set<String> rejected() {
+                            return is.autoDenied;
                         }
                     });
-                } else if (banned.isEmpty()) {
-                    onAllow.got(null);
-                } else if (onDeny != null) {
-                    onDeny.got(this);
                 }
             }
         };
     }
 
-    private boolean canAppeal(final String permission) {
+    @Override
+    public boolean isGranted(int result) {
+        return result == PackageManager.PERMISSION_GRANTED;
+    }
+
+    @Override
+    public boolean isGranted(String permission) {
+        return isGranted(ActivityCompat.checkSelfPermission(context, permission));
+    }
+
+    @Override
+    public boolean isAppealable(final String permission) {
         return new Client.Case() {
             boolean result;
 
@@ -401,15 +414,13 @@ public class AndroidPermit implements Permit {
             public void fragment(Fragment client) {
                 result = client.shouldShowRequestPermissionRationale(permission);
             }
+
+            @Override
+            public void platformFragment(android.app.Fragment client) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    result = client.shouldShowRequestPermissionRationale(permission);
+                }
+            }
         }.result();
     }
-
-    private boolean allowed(String permission) {
-        return allowed(ActivityCompat.checkSelfPermission(context, permission));
-    }
-
-    private static boolean allowed(int result) {
-        return result == PackageManager.PERMISSION_GRANTED;
-    }
-
 }
