@@ -29,7 +29,15 @@ import ph.codeia.values.Do;
  * afterwards. The platform might also deny or grant on its own without user
  * input, possibly depending on previous user actions.
  *
+ * After submitting the request, one of two things may happen: all permissions
+ * were granted or at least one of them was denied (permanently or otherwise).
+ * If all permissions were granted, the {@code granted} block will be executed.
+ * Otherwise, the {@code after} block will be called with a {@link
+ * Permission.Denial} that contains the denied permissions.
  *
+ * Revocation of previous grants is not part of the model, so these objects do
+ * not retain any information about granted permissions. Once it is known that
+ * a permission is granted, it is simply dropped from the set.
  */
 public interface Permit {
     /**

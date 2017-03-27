@@ -43,7 +43,9 @@ public class AggregatedPermissionsActivity extends TestActivity {
                 .create()
                 .show());
         permits.setAfter(response ->
-                tell("permanently denied:\n-  %s", TextUtils.join("\n-  ", response.rejected())));
+                tell("denied:%n- %s%npermanently denied:%n-  %s",
+                        TextUtils.join("\n-  ", response.denied()),
+                        TextUtils.join("\n-  ", response.rejected())));
         coarse = permits
                 .ask(ASK_COARSE, Manifest.permission.ACCESS_COARSE_LOCATION)
                 .granted(() -> PermissionsActivity.COARSE.send("granted"));

@@ -13,8 +13,11 @@ import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentManager;
 import android.util.SparseArray;
 
+import java.util.ArrayDeque;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -28,7 +31,7 @@ import ph.codeia.values.Do;
  */
 
 /**
- * An {@link Permit.Builder} for Marshmallow and above.
+ * A {@link Permit.Builder} for Marshmallow and above.
  *
  * Can still (and should) be used before Marshmallow, except it just calls the
  * allow callback immediately after {@link #granted(Runnable)} if the permission
@@ -46,13 +49,13 @@ public class AndroidPermit implements Permit.Builder, Permission.Adapter {
     public static class Helper extends Fragment {
         private static final String TAG = Helper.class.getCanonicalName();
         /**
-         * uses the last half of usable numbers to make collisions unlikely
+         * Uses the last half of legal request codes to make collisions unlikely
          */
         private final AtomicInteger counter = new AtomicInteger(1 << 15);
         private final SparseArray<Permit> requests = new SparseArray<>();
-        @Nullable private Do.Just<Permission.Appeal> beforeFallback;
+        private final Queue<Permit> deferred = new ArrayDeque<>();
+        @Nullable private Do.Just<Permission.Appeal> beforeFallback = Permission.INSIST;
         @Nullable private Do.Just<Permission.Denial> afterFallback;
-        @Nullable private Permit deferred;
 
         /**
          * Sets the default appeal callback.
@@ -144,9 +147,8 @@ public class AndroidPermit implements Permit.Builder, Permission.Adapter {
         @Override
         public void onResume() {
             super.onResume();
-            if (deferred != null) {
-                deferred.dispatch();
-                deferred = null;
+            for (Iterator<Permit> it = deferred.iterator(); it.hasNext(); it.remove()) {
+                it.next().dispatch();
             }
         }
 
@@ -154,7 +156,8 @@ public class AndroidPermit implements Permit.Builder, Permission.Adapter {
         public void onDetach() {
             super.onDetach();
             requests.clear();
-            deferred = null;
+            beforeFallback = null;
+            afterFallback = null;
         }
 
         @Override
@@ -164,7 +167,7 @@ public class AndroidPermit implements Permit.Builder, Permission.Adapter {
                 @NonNull int[] grantResults) {
             Permit p = requests.get(requestCode);
             if (p != null && p.check(requestCode, permissions, grantResults)) {
-                deferred = p;
+                deferred.add(p);
                 return;
             }
             super.onRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -198,8 +201,8 @@ public class AndroidPermit implements Permit.Builder, Permission.Adapter {
      *                 to construct your own permit with
      *                 {@link #AndroidPermit(Activity, int)}.
      * @return see {@link #of(FragmentManager)}
-     * @see #AndroidPermit(android.app.Fragment, int); same situation applies
-     * when using platform activities instead of compat.
+     * @see #AndroidPermit(android.app.Fragment, int) same things apply when
+     * using platform activities instead of support.
      */
     public static Helper of(FragmentActivity activity) {
         return of(activity.getSupportFragmentManager());
@@ -207,8 +210,10 @@ public class AndroidPermit implements Permit.Builder, Permission.Adapter {
 
     /**
      * @param fragment Uses its parent's FM. Call {@link #of(FragmentManager)}
-     *                 if you need/want to use a child FM.
+     *                 if you need/want to use a child FM. Again, only support
+     *                 fragments.
      * @return see {@link #of(FragmentManager)}
+     * @see #AndroidPermit(android.app.Fragment, int) for platform fragments.
      */
     public static Helper of(Fragment fragment) {
         return of(fragment.getFragmentManager());
@@ -227,7 +232,7 @@ public class AndroidPermit implements Permit.Builder, Permission.Adapter {
     private final Client client;
     private final int code;
     private final Set<String> permissionNames = new HashSet<>();
-    @Nullable private Do.Just<Permission.Appeal> before;
+    @Nullable private Do.Just<Permission.Appeal> before = Permission.INSIST;
     @Nullable private Do.Just<Permission.Denial> after;
 
     /**
@@ -417,9 +422,8 @@ public class AndroidPermit implements Permit.Builder, Permission.Adapter {
 
             @Override
             public void platformFragment(android.app.Fragment client) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    result = client.shouldShowRequestPermissionRationale(permission);
-                }
+                result = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
+                        && client.shouldShowRequestPermissionRationale(permission);
             }
         }.result();
     }

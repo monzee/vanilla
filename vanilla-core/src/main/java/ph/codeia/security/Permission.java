@@ -4,6 +4,8 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 
+import ph.codeia.values.Do;
+
 /**
  * This file is a part of the vanilla project.
  */
@@ -70,6 +72,19 @@ public class Permission {
          */
         boolean isAppealable(String permission);
     }
+
+    /**
+     * A callback that unconditionally submits the appeal.
+     *
+     * Not a good idea in general, but sometimes you just don't care about your
+     * users.
+     */
+    public static final Do.Just<Appeal> INSIST = new Do.Just<Appeal>() {
+        @Override
+        public void got(Appeal appeal) {
+            appeal.submit();
+        }
+    };
 
     /**
      * The permissions that will be included in the request.

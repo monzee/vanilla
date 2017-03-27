@@ -140,35 +140,28 @@ permits
     // The #ask() method can take a variable number of string arguments.
     .ask(Manifest.permission.READ_CONTACTS)
 
-    // Called when one or more permissions were denied by the user. You'd
-    // probably want to display a rationale here and show the user a button
-    // to resubmit the request
-    .denied(appeal -> {
-      // The appeal object is a string iterable containing all permissions
-      // that were "soft-denied" by the user. If appeal#isEmpty() is true,
-      // it means some or none of the permissions were granted but at least one
-      // of them was permanently denied (i.e. the user checked "Never ask me
-      // again" and clicked the "Deny" button on the dialog). When that
-      // happens, you should never call appeal#submit() because you would
-      // be stuck in an infinite loop of denial and despair. This would
-      // most likely happen in the UI thread too which makes it even worse.
-      // TODO: i should actually detect and prevent this.
-      if (!appeal.isEmpty()) {
-        // I do not provide a way to display a rationale. You can do
-        // whatever you want as long as you don't unconditionally call
-        // appeal#submit() because that would be extremely annoying.
-        // You should always give the user an option to ignore your
-        // appeal.
-        showDialog(
-            "Rationale",
-            "I need these: " + TextUtils.join(", ", appeal),
-            appeal::submit);
-      } else {
-        // Depending on your use case, you might be able to do something
-        // even with a partial grant. You can check which permissions
-        // were permanently denied with appeal#banned().
-        tell("oh well, i guess i'm doing nothing then.");
-      }
+    // Called after #submit() when there's at least one permission that was
+    // previously 'soft-denied' by the user. The idea here is that the app
+    // would explain to the user at this point why the permissions are needed
+    // and to give the user another chance to accept (or reject) your request.
+    .before(appeal -> {
+      // You must call appeal#submit() at some point here, otherwise it's just
+      // like your permissions are permanently denied. Your granted callback
+      // will never be called. That said, you shouldn't unconditionally call
+      // appeal#submit(). It must be called as a result of some user input, e.g.
+      // a button press in a dialog or snackbar.
+      showDialog(
+          "Permissions",
+          "Please allow me to do\n" + TextUtils.join("\n- ", appeal.permissions()),
+          appeal::submit);
+    })
+
+    // Called after #onRequestPermissionsResult when at least one of the
+    // permissions you asked were denied.
+    .after(response -> {
+      // response#denied() returns the set of appealable permissions.
+      // response#rejected() returns the set of permanently denied permissions.
+      tell("not much you can do about that you guys");
     })
 
     // Called when every permission in the set is granted by the user
@@ -190,7 +183,7 @@ that triggered the permission request in the first place.
 
 #### The proper way
 
-The proper way to request permissions is to declare them very early, probably
+The proper way to request permissions is to declare them early on, like
 during `#onCreate`. Note that you only have to _declare_ them early, not submit.
 This way, the callbacks are restored after rotation and the fragment can invoke
 one of them when the permissions dialog is dismissed.
@@ -198,10 +191,13 @@ one of them when the permissions dialog is dismissed.
 ```java
 // We're in #onCreate(Bundle)
 
-// this Sensitive object must be declared as member variable
+// this Permit object must be declared as member variable
 displayContactsRequest = permits
     .ask(Manifest.permission.READ_CONTACTS)
-    .denied(/* ... */)  // denied callbacks are optional, by the way.
+    .before(Permissions.Appeal::submit)
+    // #before() and #after() are optional, by the way.
+    // The default #before() autosubmits the appeal like here. Default #after()
+    // does nothing.
     .granted(this::displayContacts);
 ```
 > There's no guarantee that the generated integer codes would match. If all
@@ -230,17 +226,15 @@ This library is published at jcenter.
 ```gradle
 dependencies {
     // ...
-    compile "ph.codeia.vanilla:vanilla-android:$LATEST_VERSION"
+    compile "ph.codeia.vanilla:vanilla-android:0.3.3"
 }
 ```
-
-(Scroll up to the beginning of this document to see the latest version number.)
 
 Retrolambda is highly recommended.
 
 ```gradle
 plugins {
-    id 'me.tatarka.retrolambda' version '3.6.0'
+    id "me.tatarka.retrolambda" version "3.6.0"
 }
 ```
 
