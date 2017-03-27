@@ -11,11 +11,13 @@ import android.widget.TextView;
 
 import java.io.IOException;
 
-import ph.codeia.androidutils.AndroidPermit;
+import ph.codeia.androidutils.AndroidOldPermit;
+import ph.codeia.meta.StrawMan;
 import ph.codeia.security.Sensitive;
 import ph.codeia.signal.Channel;
 import ph.codeia.signal.Links;
 
+@StrawMan
 public class AggregatedPermissionsActivity extends TestActivity {
 
     private static final int ASK_COARSE = 1;
@@ -31,7 +33,7 @@ public class AggregatedPermissionsActivity extends TestActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         status = (TextView) findViewById(R.id.the_status);
-        AndroidPermit.Helper permits = AndroidPermit.of(getSupportFragmentManager());
+        AndroidOldPermit.Helper permits = AndroidOldPermit.of(getSupportFragmentManager());
         permits.setDeniedCallback(appeal -> {
             PermissionsActivity.onDeny(appeal);
             if (!appeal.isEmpty()) {
@@ -93,7 +95,7 @@ public class AggregatedPermissionsActivity extends TestActivity {
                 contacts.submit();
                 return true;
             case R.id.request_combo:
-                AndroidPermit.of(this)
+                AndroidOldPermit.of(this)
                         .ask(Manifest.permission.ACCESS_COARSE_LOCATION,
                                 Manifest.permission.READ_CONTACTS)
                         .granted(() -> {

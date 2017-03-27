@@ -39,7 +39,7 @@ import static org.hamcrest.CoreMatchers.*;
 
 @RunWith(AndroidJUnit4.class)
 @LargeTest
-public class AndroidPermitTest {
+public class AndroidOldPermitTest {
 
     private static final String PACKAGE = "ph.codeia.androidutilstests";
 

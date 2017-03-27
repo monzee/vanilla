@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import ph.codeia.run.PassThrough;
 import ph.codeia.run.Runner;
-import ph.codeia.security.Permit;
+import ph.codeia.security.OldPermit;
 import ph.codeia.security.Sensitive;
 import ph.codeia.security.Synthetic;
 import ph.codeia.values.Do;
@@ -33,13 +33,14 @@ import ph.codeia.values.Do;
  */
 
 /**
- * A {@link Permit} for marshmallow and above, implemented as a mutable builder.
+ * A {@link OldPermit} for marshmallow and above, implemented as a mutable builder.
  *
  * Can still (and should) be used before marshmallow, except it just calls the
  * allow callback immediately after {@link #granted(Runnable)} if the permission
  * was declared in the manifest.
  */
-public class AndroidPermit implements Permit {
+@Deprecated
+public class AndroidOldPermit implements OldPermit {
 
     /**
      * Headless fragment that produces Permits and attaches to the permission
@@ -86,33 +87,33 @@ public class AndroidPermit implements Permit {
          * objects.
          *
          * You can change the individual deny handlers by calling
-         * {@link #denied(Do.Just)} on the {@link Permit} objects before
+         * {@link #denied(Do.Just)} on the {@link OldPermit} objects before
          * calling {@link #granted(Runnable)}.
          *
-         * @param onDeny see {@link Permit#denied(Do.Just)}
+         * @param onDeny see {@link OldPermit#denied(Do.Just)}
          */
         public void setDeniedCallback(Do.Just<Sensitive> onDeny) {
             this.onDeny = onDeny;
         }
 
         /**
-         * Create a {@link Permit} object.
+         * Create a {@link OldPermit} object.
          *
          * @param code Unique identifier for this permission set
          * @return wraps an AndroidPermit instance
          */
-        public Permit make(final int code) {
-            return new Permit() {
-                Permit p = new AndroidPermit(Helper.this, code, runner).denied(onDeny);
+        public OldPermit make(final int code) {
+            return new OldPermit() {
+                OldPermit p = new AndroidOldPermit(Helper.this, code, runner).denied(onDeny);
 
                 @Override
-                public Permit ask(String... permissions) {
+                public OldPermit ask(String... permissions) {
                     p = p.ask(permissions);
                     return this;
                 }
 
                 @Override
-                public Permit denied(Do.Just<Sensitive> block) {
+                public OldPermit denied(Do.Just<Sensitive> block) {
                     p = p.denied(block);
                     return this;
                 }
@@ -131,7 +132,7 @@ public class AndroidPermit implements Permit {
          *
          * @see #make(int)
          */
-        public Permit make() {
+        public OldPermit make() {
             return make(counter.getAndIncrement());
         }
 
@@ -140,7 +141,7 @@ public class AndroidPermit implements Permit {
          *
          * @see #make(int)
          */
-        public Permit ask(int code, String... permissions) {
+        public OldPermit ask(int code, String... permissions) {
             return make(code).ask(permissions);
         }
 
@@ -149,7 +150,7 @@ public class AndroidPermit implements Permit {
          *
          * @see #make()
          */
-        public Permit ask(String... permissions) {
+        public OldPermit ask(String... permissions) {
             return make().ask(permissions);
         }
 
@@ -227,11 +228,11 @@ public class AndroidPermit implements Permit {
     private final int code;
     @Nullable private Do.Just<Sensitive> onDeny;
 
-    public AndroidPermit(Activity activity, int code) {
+    public AndroidOldPermit(Activity activity, int code) {
         this(activity, code, PassThrough.RUNNER);
     }
 
-    public AndroidPermit(final Activity activity, int code, Runner runner) {
+    public AndroidOldPermit(final Activity activity, int code, Runner runner) {
         this.runner = runner;
         this.code = code;
         context = activity.getApplicationContext();
@@ -243,11 +244,11 @@ public class AndroidPermit implements Permit {
         };
     }
 
-    public AndroidPermit(Fragment fragment, int code) {
+    public AndroidOldPermit(Fragment fragment, int code) {
         this(fragment, code, PassThrough.RUNNER);
     }
 
-    public AndroidPermit(final Fragment fragment, int code, Runner runner) {
+    public AndroidOldPermit(final Fragment fragment, int code, Runner runner) {
         this.runner = runner;
         this.code = code;
         context = fragment.getContext();
@@ -260,13 +261,13 @@ public class AndroidPermit implements Permit {
     }
 
     @Override
-    public Permit ask(String... permissions) {
+    public OldPermit ask(String... permissions) {
         Collections.addAll(this.permissions, permissions);
         return this;
     }
 
     @Override
-    public Permit denied(Do.Just<Sensitive> block) {
+    public OldPermit denied(Do.Just<Sensitive> block) {
         onDeny = runner.run(block);
         return this;
     }
@@ -305,10 +306,6 @@ public class AndroidPermit implements Permit {
 
             @Override
             public void submit() {
-                if (isEmpty() && !banned.isEmpty()) {
-                    throw new UnsupportedOperationException(
-                            "You should not resubmit an empty Sensitive object.");
-                }
                 for (Iterator<String> it = permissions.iterator(); it.hasNext();) {
                     if (allowed(it.next())) {
                         it.remove();
@@ -317,16 +314,14 @@ public class AndroidPermit implements Permit {
                 String[] perms = permissions.toArray(new String[permissions.size()]);
                 if (!readyToRequest && onDeny != null) {
                     readyToRequest = true;
-                    List<String> primer = new ArrayList<>();
-                    for (String p : perms) {
-                        if (canAppeal(p)) {
-                            primer.add(p);
-                        }
+                    List<String> appealable = new ArrayList<>();
+                    for (String p : perms) if (canAppeal(p)) {
+                        appealable.add(p);
                     }
-                    if (primer.isEmpty()) {
+                    if (appealable.isEmpty()) {
                         reallySubmit(perms);
                     } else {
-                        onDeny.got(new Synthetic(this, primer));
+                        onDeny.got(new Synthetic(this, appealable));
                     }
                 } else {
                     reallySubmit(perms);
@@ -335,14 +330,14 @@ public class AndroidPermit implements Permit {
 
             @Override
             public boolean check(int code, String[] permissions, int[] grants) {
-                if (AndroidPermit.this.code != code || permissions.length == 0) {
+                if (AndroidOldPermit.this.code != code || permissions.length == 0) {
                     return false;
                 }
                 for (int i = 0; i < permissions.length; i++) {
                     boolean allowed = allowed(grants[i]);
                     String permission = permissions[i];
                     if (allowed || !canAppeal(permission)) {
-                        AndroidPermit.this.permissions.remove(permission);
+                        AndroidOldPermit.this.permissions.remove(permission);
                         if (!allowed) {
                             banned.add(permission);
                         }
@@ -353,7 +348,7 @@ public class AndroidPermit implements Permit {
 
             @Override
             public void dispatch() {
-                if (isEmpty() && banned.isEmpty()) {
+                if (permissions.isEmpty() && banned.isEmpty()) {
                     onAllow.got(null);
                 } else if (onDeny != null) {
                     readyToRequest = true;

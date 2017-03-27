@@ -16,7 +16,8 @@ import ph.codeia.values.Do;
  * the app will be called back with an empty Sensitive. Once everything has
  * been granted, the granted callback will be invoked.
  */
-public interface Permit {
+@Deprecated
+public interface OldPermit {
 
     /**
      * Adds a list of permissions to the set of permissions to ask.
@@ -28,7 +29,7 @@ public interface Permit {
      * @param permissions The permissions to ask.
      * @return a builder object, probably this
      */
-    Permit ask(String... permissions);
+    OldPermit ask(String... permissions);
 
     /**
      * What to do when all or some of the permissions are denied. Optional.
@@ -42,7 +43,7 @@ public interface Permit {
      *              empty but not null.
      * @return a builder object, probably this
      */
-    Permit denied(Do.Just<Sensitive> block);
+    OldPermit denied(Do.Just<Sensitive> block);
 
     /**
      * Builds a {@link Sensitive} object.

@@ -15,8 +15,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import ph.codeia.androidutils.AndroidPermit;
-import ph.codeia.security.Permit;
+import ph.codeia.androidutils.AndroidOldPermit;
+import ph.codeia.security.OldPermit;
 import ph.codeia.security.Sensitive;
 import ph.codeia.signal.Channel;
 import ph.codeia.signal.Links;
@@ -130,9 +130,9 @@ public class PermissionsActivity extends TestActivity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
     }
 
-    Permit ask(String... permissions) {
+    OldPermit ask(String... permissions) {
         int code = counter.getAndIncrement();
-        return new AndroidPermit(this, code).ask(permissions).denied(appeal -> {
+        return new AndroidOldPermit(this, code).ask(permissions).denied(appeal -> {
             onDeny(appeal);
             if (!appeal.isEmpty()) {
                 new AlertDialog.Builder(this)
@@ -177,9 +177,6 @@ public class PermissionsActivity extends TestActivity {
             default:
                 EDGE_CASE.send("denied " + s);
                 break;
-        }
-        if (appeal.isEmpty() && appeal.banned().isEmpty()) {
-            EDGE_CASE.send("this should never happen");
         }
     }
 }

@@ -12,12 +12,13 @@ import ph.codeia.values.Do;
  * An action that requires a set of permissions to proceed.
  *
  * The introspection methods are meant to be used inside the
- * {@link Permit#denied(Do.Just)} blocks to identify which permissions are
+ * {@link OldPermit#denied(Do.Just)} blocks to identify which permissions are
  * still ungranted so that the app can display a message to the user
  * explaining why the permissions are needed. One should never unconditionally
  * submit the {@link Sensitive} object inside the deny callback or they might
  * loop forever.
  */
+@Deprecated
 public interface Sensitive extends Iterable<String> {
 
     /**

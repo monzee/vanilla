@@ -14,7 +14,7 @@ import android.widget.TextView;
 
 import java.io.IOException;
 
-import ph.codeia.androidutils.AndroidPermit;
+import ph.codeia.androidutils.AndroidOldPermit;
 
 public class FragmentTransactionAfterAllow extends AppCompatActivity {
 
@@ -40,7 +40,7 @@ public class FragmentTransactionAfterAllow extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_fragment_transaction_after_allow);
-        findViewById(R.id.do_ask).setOnClickListener(_v -> AndroidPermit.of(this)
+        findViewById(R.id.do_ask).setOnClickListener(_v -> AndroidOldPermit.of(this)
                 .ask(Manifest.permission.READ_CONTACTS)
                 .denied(appeal -> {
                     if (!appeal.isEmpty()) {
