@@ -48,6 +48,10 @@ public class PermissionTest {
         assertTrue(p.allGranted());
         assertFalse(p.someAppealable());
 
+        p = new Permission(Arrays.asList("the", "quick", "brown", "fox"), a);
+        assertFalse(p.allGranted());
+        assertFalse(p.someAppealable());
+
         p = new Permission(Arrays.asList("foo", "the", "quick", "quux"), a);
         assertFalse(p.allGranted());
         assertTrue(p.someAppealable());
@@ -63,7 +67,7 @@ public class PermissionTest {
     }
 
     @Test
-    public void ungranted_appealable_permissions_are_appealable_after_folding() {
+    public void denied_appealable_permissions_are_appealable_after_folding() {
         Permission.Adapter a = adapter(EMPTY, Collections.singletonList("foo"));
         Permission p = new Permission(Collections.singletonList("foo"), a);
         p = p.fold(new String[] {"foo"}, new int[] {0});
@@ -72,7 +76,7 @@ public class PermissionTest {
     }
 
     @Test
-    public void ungranted_unappealable_permissions_are_autodenied_after_folding() {
+    public void denied_unappealable_permissions_are_forbidden_after_folding() {
         Permission.Adapter a = adapter(EMPTY, EMPTY);
         Permission p = new Permission(Collections.singletonList("foo"), a);
         p = p.fold(new String[] {"foo"}, new int[] {0});
