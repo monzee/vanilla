@@ -34,18 +34,23 @@ public class AggregatedPermissionsActivity extends TestActivity {
         setContentView(R.layout.activity_main);
         status = (TextView) findViewById(R.id.the_status);
         AndroidPermit.Helper permits = AndroidPermit.of(getSupportFragmentManager());
-        permits.setBefore(appeal -> new AlertDialog.Builder(this)
-                .setTitle("Please?")
-                .setMessage(""
-                        + "I need these permissions to continue:\n-  "
-                        + TextUtils.join("\n-  ", appeal.permissions()))
-                .setPositiveButton("Ask me again", (dialog, id) -> appeal.submit())
-                .create()
-                .show());
-        permits.setAfter(response ->
-                tell("denied:%n- %s%npermanently denied:%n-  %s",
-                        TextUtils.join("\n-  ", response.denied()),
-                        TextUtils.join("\n-  ", response.rejected())));
+        permits.setBefore(appeal -> {
+            publish("appeal", appeal.permissions());
+            new AlertDialog.Builder(this)
+                    .setTitle("Please?")
+                    .setMessage(""
+                            + "I need these permissions to continue:\n-  "
+                            + TextUtils.join("\n-  ", appeal.permissions()))
+                    .setPositiveButton("Ask me again", (dialog, id) -> appeal.submit())
+                    .create()
+                    .show();
+        });
+        permits.setAfter(response -> {
+            publish("denied", response.forbidden());
+            if (!response.appeal()) {
+                tell("permanently denied:%n-  %s", TextUtils.join("\n-  ", response.forbidden()));
+            }
+        });
         coarse = permits
                 .ask(ASK_COARSE, Manifest.permission.ACCESS_COARSE_LOCATION)
                 .granted(() -> PermissionsActivity.COARSE.send("granted"));
@@ -127,5 +132,22 @@ public class AggregatedPermissionsActivity extends TestActivity {
                     break;
             }
         });
+    }
+
+    private static void publish(String message, Iterable<String> permissions) {
+        for (String p : permissions) switch (p) {
+            case Manifest.permission.ACCESS_COARSE_LOCATION:
+                PermissionsActivity.COARSE.send(message);
+                break;
+            case Manifest.permission.ACCESS_FINE_LOCATION:
+                PermissionsActivity.FINE.send(message);
+                break;
+            case Manifest.permission.READ_CONTACTS:
+                PermissionsActivity.CONTACTS.send(message);
+                break;
+            default:
+                PermissionsActivity.EDGE_CASE.send(message + " " + p);
+                break;
+        }
     }
 }

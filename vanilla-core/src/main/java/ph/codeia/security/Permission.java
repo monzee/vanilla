@@ -46,7 +46,15 @@ public class Permission {
          * @return set of permissions that were permanently denied. The user
          * will have to go to the device's settings to reverse them.
          */
-        Set<String> rejected();
+        Set<String> forbidden();
+
+        /**
+         * Resubmits the request if not every permission was permanently denied.
+         *
+         * @return true if the request was resubmitted; false if there are no
+         * appealable permissions left.
+         */
+        boolean appeal();
     }
 
     /**
@@ -101,7 +109,7 @@ public class Permission {
      * Subset of {@link #pending} that will be automatically denied by the
      * platform without asking the user.
      */
-    public final Set<String> autoDenied = new HashSet<>();
+    public final Set<String> forbidden = new HashSet<>();
     private final Adapter adapter;
 
     /**
@@ -173,7 +181,7 @@ public class Permission {
                 appealable.remove(name);
             } else if (!adapter.isAppealable(name)) {
                 appealable.remove(name);
-                autoDenied.add(name);
+                forbidden.add(name);
             } else {
                 appealable.add(name);
             }

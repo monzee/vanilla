@@ -160,11 +160,12 @@ permits
     // permissions you asked were denied.
     .after(response -> {
       // response#denied() returns the set of appealable permissions.
-      // response#rejected() returns the set of permanently denied permissions.
+      // response#forbidden() returns the set of permanently denied permissions.
       tell("not much you can do about that you guys");
     })
 
-    // Called when every permission in the set is granted by the user
+    // The priviledged method. Called only when every permission in the set is
+    // granted by the user.
     .granted(this::displayContacts)
 
     // Check the permission status and call either the denied or granted
@@ -173,8 +174,8 @@ permits
 ```
 
 That's it. You don't have to override `#onRequestPermissionsResult` or annotate
-anything. You don't need to track the request codes. The helper fragment does it
-all for you.
+anything. You don't need to track the request codes. The helper does it all for
+you.
 
 This is sloppy because when the phone is rotated while the permission
 dialog is visible, the dialog will remain visible and the response will take
@@ -186,13 +187,13 @@ that triggered the permission request in the first place.
 The proper way to request permissions is to declare them early on, like
 during `#onCreate`. Note that you only have to _declare_ them early, not submit.
 This way, the callbacks are restored after rotation and the fragment can invoke
-one of them when the permissions dialog is dismissed.
+one of them when returning from the permissions dialog.
 
 ```java
 // We're in #onCreate(Bundle)
 
 // this Permit object must be declared as member variable
-displayContactsRequest = permits
+displayContactsPermit = permits
     .ask(Manifest.permission.READ_CONTACTS)
     .before(Permissions.Appeal::submit)
     // #before() and #after() are optional, by the way.
@@ -202,21 +203,23 @@ displayContactsRequest = permits
 ```
 > There's no guarantee that the generated integer codes would match. If all
 > permits are declared in the same place, there's a good chance they would. If
-> you find that they don't match, you can specify an id by calling `#ask` with
-> an integer argument (e.g. `ask(123, PERMISSION_1, PERMISSION_2)`)
+> you find that they don't, you can specify an id by calling `#ask` with an
+> integer argument (e.g. `ask(123, PERMISSION_1, PERMISSION_2)`).
 
-You then call `#submit` on this object in a UI event handler:
+You then call `#submit` on this object in a view event handler:
 
 ```java
 // In a click handler
-displayContactsRequest.submit();
+displayContactsPermit.submit();
 ```
 
 This has the disadvantage of needing to declare fields for every permission set
-and having the action declared far away from where it actually happens. I am not
-a big fan of that, that's why this is presented merely as an option. The
-permission dialog appears so infrequently that I think it's often times fine to
-use the sloppy style.
+and having the action declared far away from where it actually happens. You lose
+the local context where the action is invoked. If you need to close over local
+variables in a granted callback, they now need to be declared as fields and be
+serialized/deserialized. I am not a big fan of that, that's why this is
+presented merely as an option. The permission dialog appears so infrequently
+that I think it's often times fine to use the sloppy style.
 
 
 ## Installation
@@ -226,7 +229,7 @@ This library is published at jcenter.
 ```gradle
 dependencies {
     // ...
-    compile "ph.codeia.vanilla:vanilla-android:0.3.3"
+    compile "ph.codeia.vanilla:vanilla-android:0.3.4"
 }
 ```
 
@@ -237,17 +240,6 @@ plugins {
     id "me.tatarka.retrolambda" version "3.6.0"
 }
 ```
-
-
-### Hacking
-
-The repository does not include a root settings file so you might not be able to
-import this project properly into Android Studio nor run any of the gradle tasks
-in the cli. Just copy `settings-travis-ci.gradle` into `settings.gradle` then
-stick `, ':vanilla-android'` at the end of the `include`. The reason I have
-excluded the settings is because I have a bunch of modules and other garbage
-in the directory where I'm writing this that I do not want to publish. Maybe
-I'll clean it up in the future.
 
 
 ## License

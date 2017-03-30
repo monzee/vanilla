@@ -22,8 +22,8 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import ph.codeia.meta.Untested;
-import ph.codeia.security.Permit;
 import ph.codeia.security.Permission;
+import ph.codeia.security.Permit;
 import ph.codeia.values.Do;
 
 /**
@@ -41,13 +41,15 @@ import ph.codeia.values.Do;
 public class AndroidPermit implements Permit.Builder, Permission.Adapter {
 
     /**
-     * Headless fragment that produces Permits and attaches to the permission
-     * response hook.
+     * Headless fragment that produces Permit builders and attaches to the
+     * permission response hook.
      *
-     * NEVER INSTANTIATE DIRECTLY; use any of the {@code #of} static methods.
+     * NEVER INSTANTIATE DIRECTLY; use one of the {@code #of} static methods.
      */
     public static class Helper extends Fragment {
+
         private static final String TAG = Helper.class.getCanonicalName();
+
         /**
          * Uses the last half of legal request codes to make collisions unlikely
          */
@@ -179,12 +181,12 @@ public class AndroidPermit implements Permit.Builder, Permission.Adapter {
      * Ensures only one instance of {@link Helper} is attached to the activity.
      *
      * @param fm Does not work with platform fragment managers because that
-     *           means copy-pasted code. You should construct {@link
-     *           AndroidPermit} directly and delegate to it in
+     *           means copy-pasted code or more fun visitor classes. You should
+     *           construct {@link AndroidPermit} directly and delegate to it in
      *           #onRequestPermissionsResult.
      * @return a fragment that builds {@link Permit.Builder} objects.
      * @see #AndroidPermit(android.app.Fragment, int) if you are using
-     * platform fragments.
+     * platform fragments or activities.
      */
     public static Helper of(FragmentManager fm) {
         Fragment f = fm.findFragmentByTag(Helper.TAG);
@@ -224,6 +226,7 @@ public class AndroidPermit implements Permit.Builder, Permission.Adapter {
         interface Case {
             void activity(Activity client);
             void fragment(Fragment client);
+            @RequiresApi(Build.VERSION_CODES.M)
             void platformFragment(android.app.Fragment client);
         }
     }
@@ -236,7 +239,8 @@ public class AndroidPermit implements Permit.Builder, Permission.Adapter {
     @Nullable private Do.Just<Permission.Denial> after;
 
     /**
-     * @param client The object to call permission checks and requests on.
+     * @param client The object to call permission checks and requests on. You
+     *               can pass platform activities here.
      * @param code Unique identifier
      */
     public AndroidPermit(final Activity client, int code) {
@@ -266,16 +270,18 @@ public class AndroidPermit implements Permit.Builder, Permission.Adapter {
     }
 
     /**
+     * Associate with a platform fragment; requires Marshmallow or later.
+     *
      * When using platform fragments, you get no help from the library. You
      * will have to declare {@link Permit} members, submit them and override
      * {@link android.app.Fragment#onRequestPermissionsResult(int, String[], int[])}
      * where you need to call {@link Permit#check(int, String[], int[])} and
      * {@link Permit#dispatch()}.
      *
-     * @param client Platform fragment.
+     * @param client A platform fragment.
      * @param code Unique identifier.
      */
-    @RequiresApi(api = Build.VERSION_CODES.M)
+    @RequiresApi(Build.VERSION_CODES.M)
     public AndroidPermit(final android.app.Fragment client, int code) {
         this.client = new Client() {
             @Override
@@ -325,15 +331,10 @@ public class AndroidPermit implements Permit.Builder, Permission.Adapter {
                         client.requestPermissions(request, code);
                     }
 
+                    @RequiresApi(Build.VERSION_CODES.M)
                     @Override
                     public void platformFragment(android.app.Fragment client) {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                            client.requestPermissions(request, code);
-                        } else {
-                            // all permissions are allowed at install time for
-                            // old versions, so this is safe.
-                            block.run();
-                        }
+                        client.requestPermissions(request, code);
                     }
                 });
             }
@@ -347,7 +348,7 @@ public class AndroidPermit implements Permit.Builder, Permission.Adapter {
                     before.got(new Permission.Appeal() {
                         @Override
                         public Set<String> permissions() {
-                            return is.appealable;
+                            return Collections.unmodifiableSet(is.appealable);
                         }
 
                         @Override
@@ -377,12 +378,21 @@ public class AndroidPermit implements Permit.Builder, Permission.Adapter {
                     after.got(new Permission.Denial() {
                         @Override
                         public Set<String> denied() {
-                            return is.appealable;
+                            return Collections.unmodifiableSet(is.appealable);
                         }
 
                         @Override
-                        public Set<String> rejected() {
-                            return is.autoDenied;
+                        public Set<String> forbidden() {
+                            return Collections.unmodifiableSet(is.forbidden);
+                        }
+
+                        @Override
+                        public boolean appeal() {
+                            if (is.someAppealable()) {
+                                submit();
+                                return true;
+                            }
+                            return false;
                         }
                     });
                 }
@@ -420,10 +430,10 @@ public class AndroidPermit implements Permit.Builder, Permission.Adapter {
                 result = client.shouldShowRequestPermissionRationale(permission);
             }
 
+            @RequiresApi(Build.VERSION_CODES.M)
             @Override
             public void platformFragment(android.app.Fragment client) {
-                result = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
-                        && client.shouldShowRequestPermissionRationale(permission);
+                result = client.shouldShowRequestPermissionRationale(permission);
             }
         }.result();
     }
