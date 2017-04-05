@@ -1,4 +1,4 @@
-package ph.codeia.arch.sav;
+package ph.codeia.arch.sac;
 
 import java.lang.ref.WeakReference;
 import java.util.Iterator;
@@ -17,53 +17,57 @@ import ph.codeia.arch.ErrorHandler;
 
 public abstract class Unit<
         S extends State<S, A>,
-        A extends Action<S, A, V>,
-        V>
-implements ErrorHandler<V> {
+        A extends Action<S, A, C>,
+        C>
+implements ErrorHandler<C> {
 
     public static abstract class Builder<
             S extends State<S, A>,
-            A extends Action<S, A, V>,
-            V> {
+            A extends Action<S, A, C>,
+            C> {
         protected final S state;
-        protected ErrorHandler<V> handler;
+        protected ErrorHandler<C> handler;
 
         public Builder(S state) {
             this.state = state;
         }
 
-        public Builder<S, A, V> withErrorHandler(ErrorHandler<V> handler) {
+        public Builder<S, A, C> withErrorHandler(ErrorHandler<C> handler) {
             this.handler = handler;
             return this;
         }
 
-        public abstract Unit<S, A, V> build();
+        public abstract Unit<S, A, C> build();
 
-        public Fixed<S, A, V> build(V view, Executor executor) {
-            return new Fixed<>(view, executor, build());
+        public Fixed<S, A, C> build(C client) {
+            return build(IMMEDIATE, client);
+        }
+
+        public Fixed<S, A, C> build(Executor executor, C client) {
+            return new Fixed<>(executor, client, build());
         }
     }
 
     public static class Fixed<
             S extends State<S, A>,
-            A extends Action<S, A, V>,
-            V> {
-        public final Unit<S, A, V> unit;
-        private final WeakReference<V> view;
+            A extends Action<S, A, C>,
+            C> {
+        public final Unit<S, A, C> unit;
+        private final WeakReference<C> client;
         private final Executor executor;
 
-        public Fixed(V view, Executor executor, Unit<S, A, V> unit) {
+        public Fixed(Executor executor, C client, Unit<S, A, C> unit) {
             this.unit = unit;
-            this.view = new WeakReference<>(view);
+            this.client = new WeakReference<>(client);
             this.executor = executor;
         }
 
         public void start() {
-            unit.start(view.get());
+            unit.start(client.get());
         }
 
         public void start(A action) {
-            unit.start(executor, view, action);
+            unit.start(executor, client.get(), action);
         }
 
         public void stop() {
@@ -71,11 +75,11 @@ implements ErrorHandler<V> {
         }
 
         public void apply(A action) {
-            unit.apply(executor, view, action);
+            unit.apply(executor, client, action);
         }
 
         public void applyNow(A action) {
-            unit.apply(IMMEDIATE, view, action);
+            unit.apply(IMMEDIATE, client, action);
         }
     }
 
@@ -101,8 +105,8 @@ implements ErrorHandler<V> {
         return new FutureTask<>(producer);
     }
 
-    private S state;
-    private boolean isRunning = false;
+    protected S state;
+    protected boolean isRunning = false;
 
     protected Unit(S state) {
         this.state = state;
@@ -116,50 +120,44 @@ implements ErrorHandler<V> {
         isRunning = false;
     }
 
-    public void start(V view) {
+    public void start(C client) {
         isRunning = true;
         for (Iterator<Future<A>> it = state.iterator(); it.hasNext();) {
             Future<A> futureAction = it.next();
             if (futureAction.isDone()) {
                 it.remove();
                 try {
-                    state = futureAction.get().fold(state, view);
+                    state = futureAction.get().fold(state, client);
                 } catch (InterruptedException | ExecutionException e) {
-                    handle(e, view);
+                    handle(e, client);
                 }
             }
         }
     }
 
-    public void start(Executor worker, V view, A action) {
-        start(view);
-        start(worker, new WeakReference<>(view), action);
-    }
-
-    public void apply(Executor worker, V view, A action) {
-        apply(worker, new WeakReference<>(view), action);
-    }
-
-    protected void start(
-            final Executor worker,
-            final WeakReference<V> viewRef,
-            final A action) {
+    public void start(final Executor worker, C client, final A action) {
+        start(client);
+        final WeakReference<C> clientRef = new WeakReference<>(client);
         worker.execute(new Runnable() {
             @Override
             public void run() {
                 try {
                     state.backlog().await();
-                    apply(worker, viewRef, action);
+                    apply(worker, clientRef, action);
                 } catch (InterruptedException e) {
-                    handle(e, viewRef.get());
+                    handle(e, clientRef.get());
                 }
             }
         });
     }
 
+    public void apply(Executor worker, C client, A action) {
+        apply(worker, new WeakReference<>(client), action);
+    }
+
     protected void apply(
             final Executor worker,
-            final WeakReference<V> viewRef,
+            final WeakReference<C> clientRef,
             final A action) {
         main(new Runnable() {
             @Override
@@ -168,7 +166,7 @@ implements ErrorHandler<V> {
                     state = state.async(now(action));
                     return;
                 }
-                state = action.fold(state, viewRef.get());
+                state = action.fold(state, clientRef.get());
                 final Backlog work = state.backlog();
                 for (Iterator<Future<A>> it = state.iterator(); it.hasNext();) {
                     final Future<A> futureAction = it.next();
@@ -182,9 +180,9 @@ implements ErrorHandler<V> {
                                 ((RunnableFuture) futureAction).run();
                             }
                             try {
-                                apply(worker, viewRef, futureAction.get());
+                                apply(worker, clientRef, futureAction.get());
                             } catch (InterruptedException | ExecutionException e) {
-                                handle(e, viewRef.get());
+                                handle(e, clientRef.get());
                             } finally {
                                 work.done();
                             }

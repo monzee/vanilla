@@ -2,9 +2,10 @@ package ph.codeia.androidutils;
 
 import ph.codeia.arch.ErrorHandler;
 import ph.codeia.arch.LogLevel;
-import ph.codeia.arch.sav.Action;
-import ph.codeia.arch.sav.State;
-import ph.codeia.arch.sav.Unit;
+import ph.codeia.arch.Logger;
+import ph.codeia.arch.sac.Action;
+import ph.codeia.arch.sac.State;
+import ph.codeia.arch.sac.Unit;
 import ph.codeia.values.Do;
 
 /**
@@ -52,11 +53,11 @@ extends Unit<S, A, V> {
     }
 
     @Override
-    public void handle(final Throwable error, V view) {
+    public void handle(final Throwable error, V client) {
         if (errorHandler != null) {
-            errorHandler.handle(error, view);
-        } else if (view != null && view instanceof LogLevel.Log) {
-            LogLevel.E.to((LogLevel.Log) view, error);
+            errorHandler.handle(error, client);
+        } else if (client != null && client instanceof Logger) {
+            LogLevel.E.to((Logger) client, error);
         } else {
             main(new Runnable() {
                 @Override
