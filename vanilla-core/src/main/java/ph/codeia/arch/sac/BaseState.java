@@ -1,5 +1,6 @@
-package ph.codeia.arch.sav;
+package ph.codeia.arch.sac;
 
+import java.util.Iterator;
 import java.util.Queue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -14,8 +15,13 @@ public abstract class BaseState<
         A extends Action<S, A, ?>>
 implements State<S, A> {
 
-    protected Queue<Future<A>> futures = new ConcurrentLinkedQueue<>();
-    protected Backlog backlog = new Backlog();
+    protected transient Queue<Future<A>> futures = new ConcurrentLinkedQueue<>();
+    protected transient Backlog backlog = new Backlog();
+
+    @Override
+    public Iterator<Future<A>> iterator() {
+        return futures.iterator();
+    }
 
     @Override
     public Backlog backlog() {

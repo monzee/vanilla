@@ -1,4 +1,4 @@
-package ph.codeia.arch.sav;
+package ph.codeia.arch.sac;
 
 /**
  * This file is a part of the vanilla project.
@@ -6,7 +6,7 @@ package ph.codeia.arch.sav;
 
 public interface Action<
         S extends State<S, A>,
-        A extends Action<S, A, V>,
-        V> {
-    S fold(S from, V view);
+        A extends Action<S, A, C>,
+        C> {
+    S fold(S from, C client);
 }

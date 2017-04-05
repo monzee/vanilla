@@ -1,4 +1,4 @@
-package ph.codeia.arch.sav;
+package ph.codeia.arch.sac;
 
 /**
  * This file is a part of the vanilla project.
@@ -6,7 +6,7 @@ package ph.codeia.arch.sav;
 
 public class Backlog {
     private final Object lock = new Object();
-    private volatile int inFlight = 0;
+    private int inFlight = 0;
 
     public void started() {
         synchronized (lock) {

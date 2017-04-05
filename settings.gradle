@@ -1,1 +1,1 @@
-include ':vanilla-core', ':vanilla-tests', ':vanilla-android', ':vanilla-android-tests'
+include ':vanilla-core', ':vanilla-tests', ':vanilla-android', ':vanilla-android-tests', ':sac-demo'
