@@ -19,8 +19,8 @@ public interface Shoe {
     class Legit implements Shoe, Serializable {
         private final List<Card> cards = new ArrayList<>();
         private final int cut;
-        private int i = 0;
-        private boolean shuffled;
+        private volatile int i = 0;
+        private volatile boolean shuffled;
 
         public Legit(int decks, int cut) {
             if (decks < 1) {

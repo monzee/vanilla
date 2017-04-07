@@ -80,9 +80,8 @@ public class HeadToHead implements BlackJack {
             Round next = round;
 
             /**
-             * - cannot hit or surrender if either side got a blackjack or
-             *   player busts
-             * - push if both has a blackjack
+             * - cannot hit or surrender if player or dealer got a blackjack
+             * - push if both have blackjacks
              * - else offer surrender
              *
              * @return new round state
@@ -96,7 +95,7 @@ public class HeadToHead implements BlackJack {
                 Score.Of.hand(round.player).match(new Score.Case() {
                     @Override
                     public void bust(int total) {
-                        next = gameOver(round);
+                        throw new IllegalStateException("Bust on opening hand");
                     }
 
                     @Override
@@ -118,7 +117,7 @@ public class HeadToHead implements BlackJack {
 
             @Override
             public void bust(int total) {
-                checkPlayerHand();
+                throw new IllegalStateException("Bust on opening hand");
             }
 
             @Override
@@ -226,7 +225,7 @@ public class HeadToHead implements BlackJack {
              *       - if gt: pay out wager, game over.
              *       - else take wager, game over.
              *
-             * @return new state or the same instance if game over
+             * @return new state or the same instance if game is over
              */
             Round next() {
                 if (round.surrendered) {

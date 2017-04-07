@@ -4,7 +4,7 @@ package ph.codeia.sacdemo.deck;
  * This file is a part of the vanilla project.
  */
 
-public class Card {
+public final class Card {
 
     public static Card of(Face value, Suit suit) {
         return new Card(e -> e.face(value), suit);
