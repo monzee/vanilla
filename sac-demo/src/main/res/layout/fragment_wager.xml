@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <NumberPicker
+        android:id="@+id/picker"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintHorizontal_bias="0.5" />
+
+    <Button
+        android:id="@+id/do_minus_10"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="-10"
+        style="?borderlessButtonStyle"
+        app:layout_constraintBottom_toTopOf="@+id/do_minus_100"
+        app:layout_constraintLeft_toLeftOf="@+id/do_minus_100" />
+
+    <Button
+        android:id="@+id/do_minus_100"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="-100"
+        style="?borderlessButtonStyle"
+        app:layout_constraintRight_toLeftOf="@+id/picker"
+        app:layout_constraintTop_toTopOf="@+id/picker"
+        app:layout_constraintBottom_toBottomOf="@+id/picker" />
+
+    <Button
+        android:id="@+id/do_minus_1000"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="-1000"
+        style="?borderlessButtonStyle"
+        app:layout_constraintLeft_toLeftOf="@+id/do_minus_100"
+        app:layout_constraintTop_toBottomOf="@+id/do_minus_100" />
+
+    <Button
+        android:id="@+id/do_plus_10"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="+10"
+        style="?borderlessButtonStyle"
+        app:layout_constraintBottom_toTopOf="@+id/do_plus_100"
+        app:layout_constraintLeft_toLeftOf="@+id/do_plus_100" />
+
+    <Button
+        android:id="@+id/do_plus_100"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="+100"
+        style="?borderlessButtonStyle"
+        app:layout_constraintLeft_toRightOf="@+id/picker"
+        app:layout_constraintTop_toTopOf="@+id/picker"
+        app:layout_constraintBottom_toBottomOf="@+id/picker" />
+
+    <Button
+        android:id="@+id/do_plus_1000"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="+1000"
+        style="?borderlessButtonStyle"
+        app:layout_constraintLeft_toLeftOf="@+id/do_plus_100"
+        app:layout_constraintTop_toBottomOf="@+id/do_plus_100" />
+
+</android.support.constraint.ConstraintLayout>
