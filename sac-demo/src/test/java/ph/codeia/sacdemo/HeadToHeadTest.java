@@ -4,7 +4,7 @@ import org.junit.Test;
 
 import ph.codeia.arch.LogLevel;
 import ph.codeia.arch.Logger;
-import ph.codeia.arch.sac.Stepper;
+import ph.codeia.arch.sm.Stepper;
 import ph.codeia.sacdemo.blackjack.BlackJack;
 import ph.codeia.sacdemo.blackjack.HeadToHead;
 import ph.codeia.sacdemo.deck.Card;

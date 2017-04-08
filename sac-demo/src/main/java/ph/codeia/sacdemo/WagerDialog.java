@@ -7,10 +7,10 @@ import android.support.v4.app.DialogFragment;
 import android.support.v7.app.AlertDialog;
 import android.widget.NumberPicker;
 
-import ph.codeia.androidutils.AndroidUnit;
-import ph.codeia.arch.sac.Action;
-import ph.codeia.arch.sac.BaseState;
-import ph.codeia.arch.sac.Unit;
+import ph.codeia.androidutils.AndroidMachine;
+import ph.codeia.arch.sm.BaseState;
+import ph.codeia.arch.sm.Machine;
+import ph.codeia.arch.sm.Sm;
 
 /**
  * This file is a part of the vanilla project.
@@ -24,10 +24,10 @@ public class WagerDialog extends DialogFragment {
 
     private NumberPicker picker;
 
-    private Unit.Fixed<WagerState, WagerAction, WagerDialog> wager;
+    private Machine.Fixed<WagerState, WagerAction, WagerDialog> wager;
 
     void inject(int max, int lastWager, Return onReturn) {
-        wager = new AndroidUnit.Builder<>(new WagerState()).build(Runnable::run, this);
+        wager = new AndroidMachine.Builder<>(new WagerState()).build(this);
         wager.start(init(max, lastWager, onReturn));
     }
 
@@ -57,7 +57,7 @@ public class WagerDialog extends DialogFragment {
             picker = (NumberPicker) dialog.findViewById(R.id.picker);
             if (wager != null) {
                 int value = savedState == null ? -1 : savedState.getInt("last-value", -1);
-                wager.apply(init(value));
+                wager.apply(restore(value));
             }
             dialog.findViewById(R.id.do_plus_10)
                     .setOnClickListener(_v -> picker
@@ -90,7 +90,7 @@ public class WagerDialog extends DialogFragment {
         };
     }
 
-    static WagerAction init(int pickerValue) {
+    static WagerAction restore(int pickerValue) {
         return (state, dialog) -> {
             dialog.picker.setMinValue(0);
             dialog.picker.setMaxValue(state.max);
@@ -117,5 +117,5 @@ class WagerState extends BaseState<WagerState, WagerAction> {
     WagerDialog.Return onReturn;
 }
 
-interface WagerAction extends Action<WagerState, WagerAction, WagerDialog> {}
+interface WagerAction extends Sm.Action<WagerState, WagerAction, WagerDialog> {}
 

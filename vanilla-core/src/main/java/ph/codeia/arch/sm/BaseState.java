@@ -1,4 +1,4 @@
-package ph.codeia.arch.sac;
+package ph.codeia.arch.sm;
 
 import java.util.Iterator;
 import java.util.Queue;
@@ -11,9 +11,9 @@ import java.util.concurrent.Future;
  */
 
 public abstract class BaseState<
-        S extends BaseState<S, A>,
-        A extends Action<S, A, ?>>
-implements State<S, A> {
+        S extends Sm.State<S, A>,
+        A extends Sm.Action<S, A, ?>>
+implements Sm.State<S, A> {
 
     protected transient Queue<Future<A>> futures = new ConcurrentLinkedQueue<>();
     protected transient Backlog backlog = new Backlog();
@@ -36,11 +36,11 @@ implements State<S, A> {
     }
 
     public S async(Callable<A> action) {
-        return async(Unit.future(action));
+        return async(Machine.future(action));
     }
 
     public S plus(A action) {
-        return async(Unit.now(action));
+        return async(Machine.now(action));
     }
 
     @SuppressWarnings("unchecked")
@@ -49,9 +49,10 @@ implements State<S, A> {
         return (S) this;
     }
 
-    protected S join(S instance) {
+    @SuppressWarnings("unchecked")
+    protected S join(BaseState<S, A> instance) {
         instance.futures = futures;
         instance.backlog = backlog;
-        return instance;
+        return (S) instance;
     }
 }

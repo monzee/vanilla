@@ -1,4 +1,4 @@
-package ph.codeia.arch.sac;
+package ph.codeia.arch.sm;
 
 /**
  * This file is a part of the vanilla project.

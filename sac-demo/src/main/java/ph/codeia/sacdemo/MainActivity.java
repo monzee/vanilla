@@ -17,12 +17,11 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.text.NumberFormat;
-import java.util.concurrent.Executor;
 
-import ph.codeia.androidutils.AndroidUnit;
-import ph.codeia.arch.sac.Action;
-import ph.codeia.arch.sac.BaseState;
-import ph.codeia.arch.sac.Unit;
+import ph.codeia.androidutils.AndroidMachine;
+import ph.codeia.arch.sm.BaseState;
+import ph.codeia.arch.sm.Machine;
+import ph.codeia.arch.sm.Sm;
 import ph.codeia.sacdemo.blackjack.BlackJack;
 
 public class MainActivity extends AppCompatActivity {
@@ -32,8 +31,8 @@ public class MainActivity extends AppCompatActivity {
         BlackJack.Round round;
     }
 
-    private Unit<BlackJack.Round, BlackJack.Play, BlackJack.Player> game;
-    private Unit.Fixed<MainState, MainAction, MainActivity> main;
+    private Machine<BlackJack.Round, BlackJack.Play, BlackJack.Player> game;
+    private Machine.Fixed<MainState, MainAction, MainActivity> main;
     private States states;
 
     private TextView bank;
@@ -44,7 +43,7 @@ public class MainActivity extends AppCompatActivity {
         if (states == null) {
             states = new States();
         }
-        main = new AndroidUnit.Builder<>(states.main).build(AsyncTask.SERIAL_EXECUTOR, this);
+        main = new AndroidMachine.Builder<>(states.main).build(AsyncTask.SERIAL_EXECUTOR, this);
         super.onCreate(savedInstanceState);
         main.apply(MainAction.LOAD);
         setContentView(R.layout.activity_main);
@@ -118,7 +117,7 @@ class MainState extends BaseState<MainState, MainAction> implements Serializable
     int lastWager;
 }
 
-interface MainAction extends Action<MainState, MainAction, MainActivity> {
+interface MainAction extends Sm.Action<MainState, MainAction, MainActivity> {
     MainAction NOOP = (state, _m) -> state;
 
     MainAction READY = (state, main) -> {

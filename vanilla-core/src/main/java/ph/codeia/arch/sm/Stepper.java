@@ -1,4 +1,4 @@
-package ph.codeia.arch.sac;
+package ph.codeia.arch.sm;
 
 import java.util.Iterator;
 import java.util.concurrent.ExecutionException;
@@ -13,17 +13,17 @@ import ph.codeia.arch.ErrorHandler;
  */
 
 /**
- * A unit that synchronously applies actions one at a time.
+ * A machine that synchronously applies actions one at a time.
  *
  * @param <S> The state type.
  * @param <A> The action type.
  * @param <C> The client type.
  */
 public class Stepper<
-        S extends State<S, A>,
-        A extends ph.codeia.arch.sac.Action<S, A, C>,
+        S extends Sm.State<S, A>,
+        A extends Sm.Action<S, A, C>,
         C>
-extends ph.codeia.arch.sac.Unit<S, A, C> {
+extends Machine<S, A, C> {
 
     private final ErrorHandler<C> errorHandler;
 
