@@ -3,33 +3,44 @@ package ph.codeia.androidutils;
 import ph.codeia.arch.ErrorHandler;
 import ph.codeia.arch.LogLevel;
 import ph.codeia.arch.Logger;
-import ph.codeia.arch.sac.Action;
-import ph.codeia.arch.sac.State;
-import ph.codeia.arch.sac.Unit;
+import ph.codeia.arch.sm.Sm;
+import ph.codeia.arch.sm.Machine;
 import ph.codeia.values.Do;
 
 /**
  * This file is a part of the vanilla project.
  */
 
-public class AndroidUnit<
-        S extends State<S, A>,
-        A extends Action<S, A, V>,
-        V>
-extends Unit<S, A, V> {
+/**
+ * A state {@link Machine} that runs actions in the main looper.
+ *
+ * If no {@link ErrorHandler} is passed, the default implementation simply
+ * rethrows any exception thrown in async actions in the main thread so that
+ * you get a crash instead of just silently logged errors. No doubt you'd
+ * want to replace this with something more robust for release versions.
+ *
+ * @param <S> The state type.
+ * @param <A> The action type.
+ * @param <C> The client type.
+ */
+public class AndroidMachine<
+        S extends Sm.State<S, A>,
+        A extends Sm.Action<S, A, C>,
+        C>
+extends Machine<S, A, C> {
 
     public static class Builder<
-            S extends State<S, A>,
-            A extends Action<S, A, V>,
-            V>
-    extends Unit.Builder<S, A, V> {
+            S extends Sm.State<S, A>,
+            A extends Sm.Action<S, A, C>,
+            C>
+    extends Machine.Builder<S, A, C> {
         public Builder(S state) {
             super(state);
         }
 
         @Override
-        public AndroidUnit<S, A, V> build() {
-            return new AndroidUnit<>(state, handler);
+        public AndroidMachine<S, A, C> build() {
+            return new AndroidMachine<>(state, handler);
         }
     }
 
@@ -41,19 +52,19 @@ extends Unit<S, A, V> {
                 }
             });
 
-    private final ErrorHandler<V> errorHandler;
+    private final ErrorHandler<C> errorHandler;
 
-    public AndroidUnit(S state) {
+    public AndroidMachine(S state) {
         this(state, null);
     }
 
-    public AndroidUnit(S state, ErrorHandler<V> errorHandler) {
+    public AndroidMachine(S state, ErrorHandler<C> errorHandler) {
         super(state);
         this.errorHandler = errorHandler;
     }
 
     @Override
-    public void handle(final Throwable error, V client) {
+    public void handle(final Throwable error, C client) {
         if (errorHandler != null) {
             errorHandler.handle(error, client);
         } else if (client != null && client instanceof Logger) {

@@ -3,10 +3,12 @@ package ph.codeia.sacdemo.blackjack;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-import ph.codeia.arch.sac.Action;
-import ph.codeia.arch.sac.BaseState;
+import ph.codeia.arch.sm.BaseState;
+import ph.codeia.arch.sm.Sm;
 import ph.codeia.sacdemo.deck.Card;
 import ph.codeia.sacdemo.deck.Shoe;
 
@@ -93,7 +95,7 @@ public interface BlackJack {
         BUST, DEALER_BUST, DEALER_BLACKJACK
     }
 
-    interface Play extends Action<Round, Play, Player> {}
+    interface Play extends Sm.Action<Round, Play, Player> {}
 
     class Round extends BaseState<Round, Play> implements Serializable {
 

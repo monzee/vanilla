@@ -1,4 +1,4 @@
-package ph.codeia.arch.sac;
+package ph.codeia.arch.sm;
 
 import java.lang.ref.WeakReference;
 import java.util.Iterator;
@@ -15,15 +15,15 @@ import ph.codeia.arch.ErrorHandler;
  * This file is a part of the vanilla project.
  */
 
-public abstract class Unit<
-        S extends State<S, A>,
-        A extends Action<S, A, C>,
+public abstract class Machine<
+        S extends Sm.State<S, A>,
+        A extends Sm.Action<S, A, C>,
         C>
 implements ErrorHandler<C> {
 
     public static abstract class Builder<
-            S extends State<S, A>,
-            A extends Action<S, A, C>,
+            S extends Sm.State<S, A>,
+            A extends Sm.Action<S, A, C>,
             C> {
         protected final S state;
         protected ErrorHandler<C> handler;
@@ -37,7 +37,7 @@ implements ErrorHandler<C> {
             return this;
         }
 
-        public abstract Unit<S, A, C> build();
+        public abstract Machine<S, A, C> build();
 
         public Fixed<S, A, C> build(C client) {
             return build(IMMEDIATE, client);
@@ -49,37 +49,37 @@ implements ErrorHandler<C> {
     }
 
     public static class Fixed<
-            S extends State<S, A>,
-            A extends Action<S, A, C>,
+            S extends Sm.State<S, A>,
+            A extends Sm.Action<S, A, C>,
             C> {
-        public final Unit<S, A, C> unit;
+        public final Machine<S, A, C> machine;
         private final WeakReference<C> client;
         private final Executor executor;
 
-        public Fixed(Executor executor, C client, Unit<S, A, C> unit) {
-            this.unit = unit;
+        public Fixed(Executor executor, C client, Machine<S, A, C> machine) {
+            this.machine = machine;
             this.client = new WeakReference<>(client);
             this.executor = executor;
         }
 
         public void start() {
-            unit.start(client.get());
+            machine.start(client.get());
         }
 
         public void start(A action) {
-            unit.start(executor, client.get(), action);
+            machine.start(executor, client.get(), action);
         }
 
         public void stop() {
-            unit.stop();
+            machine.stop();
         }
 
         public void apply(A action) {
-            unit.apply(executor, client, action);
+            machine.apply(executor, client, action);
         }
 
         public void applyNow(A action) {
-            unit.apply(IMMEDIATE, client, action);
+            machine.apply(IMMEDIATE, client, action);
         }
     }
 
@@ -108,7 +108,7 @@ implements ErrorHandler<C> {
     protected S state;
     protected boolean isRunning = false;
 
-    protected Unit(S state) {
+    protected Machine(S state) {
         this.state = state;
     }
 
