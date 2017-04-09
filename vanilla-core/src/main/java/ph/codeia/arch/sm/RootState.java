@@ -6,11 +6,14 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Future;
 
+import ph.codeia.meta.Untested;
+
 /**
  * This file is a part of the vanilla project.
  */
 
-public abstract class BaseState<
+@Untested
+public abstract class RootState<
         S extends Sm.State<S, A>,
         A extends Sm.Action<S, A, ?>>
 implements Sm.State<S, A> {
@@ -49,10 +52,9 @@ implements Sm.State<S, A> {
         return (S) this;
     }
 
-    @SuppressWarnings("unchecked")
-    protected S join(BaseState<S, A> instance) {
+    protected <T extends RootState<S, A>> T join(T instance) {
         instance.futures = futures;
         instance.backlog = backlog;
-        return (S) instance;
+        return instance;
     }
 }

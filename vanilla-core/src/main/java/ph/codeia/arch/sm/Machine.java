@@ -10,11 +10,13 @@ import java.util.concurrent.FutureTask;
 import java.util.concurrent.RunnableFuture;
 
 import ph.codeia.arch.ErrorHandler;
+import ph.codeia.meta.Untested;
 
 /**
  * This file is a part of the vanilla project.
  */
 
+@Untested
 public abstract class Machine<
         S extends Sm.State<S, A>,
         A extends Sm.Action<S, A, C>,
@@ -48,6 +50,24 @@ implements ErrorHandler<C> {
         }
     }
 
+    /**
+     * Partially applies the start and apply methods of {@link Machine} with a
+     * common executor and receiver.
+     *
+     * You'd probably want to use this most of the time instead of a plain
+     * {@link Machine}. You can still get the wrapped machine via {@link
+     * Fixed#machine} if you need to run something with a different executor
+     * or receiver.
+     *
+     * Be careful not to leak this object and thus the receiver. That is the
+     * main reason why the {@link Machine} API explicitly asks for the executor
+     * and receiver in every step. Be especially careful if your receiver type
+     * is an Android Activity, Fragment or View or holds a reference to them.
+     *
+     * @param <S> The state type.
+     * @param <A> The action type.
+     * @param <C> The receiver type.
+     */
     public static class Fixed<
             S extends Sm.State<S, A>,
             A extends Sm.Action<S, A, C>,

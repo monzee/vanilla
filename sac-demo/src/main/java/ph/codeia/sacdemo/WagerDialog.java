@@ -5,11 +5,12 @@ import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.app.DialogFragment;
 import android.support.v7.app.AlertDialog;
+import android.view.View;
 import android.widget.NumberPicker;
 
 import ph.codeia.androidutils.AndroidMachine;
-import ph.codeia.arch.sm.BaseState;
 import ph.codeia.arch.sm.Machine;
+import ph.codeia.arch.sm.RootState;
 import ph.codeia.arch.sm.Sm;
 
 /**
@@ -22,13 +23,21 @@ public class WagerDialog extends DialogFragment {
         void wagered(int wager);
     }
 
+    private static class State extends RootState<State, Action> {
+        int max;
+        int initialValue;
+        Return onReturn;
+    }
+
+    private interface Action extends Sm.Action<State, Action, WagerDialog> {}
+
     private NumberPicker picker;
 
-    private Machine.Fixed<WagerState, WagerAction, WagerDialog> wager;
+    private Machine.Fixed<State, Action, WagerDialog> machine;
 
     void inject(int max, int lastWager, Return onReturn) {
-        wager = new AndroidMachine.Builder<>(new WagerState()).build(this);
-        wager.start(init(max, lastWager, onReturn));
+        machine = new AndroidMachine.Builder<>(new State()).build(this);
+        machine.start(init(max, lastWager, onReturn));
     }
 
     @NonNull
@@ -38,8 +47,8 @@ public class WagerDialog extends DialogFragment {
                 .setView(R.layout.fragment_wager)
                 .setTitle("Wager")
                 .setPositiveButton("Play", (_d, _i) -> {
-                    if (wager != null) {
-                        wager.apply(ok(picker.getValue()));
+                    if (machine != null) {
+                        machine.apply(ok(picker.getValue()));
                     }
                 })
                 .create());
@@ -51,37 +60,36 @@ public class WagerDialog extends DialogFragment {
         outState.putInt("last-value", picker.getValue());
     }
 
+    @Override
+    public void onDetach() {
+        super.onDetach();
+        machine.stop();
+        machine = null;
+    }
+
     @SuppressWarnings("ConstantConditions")
     Dialog onShow(Bundle savedState, Dialog dialog) {
         dialog.setOnShowListener(_d -> {
             picker = (NumberPicker) dialog.findViewById(R.id.picker);
-            if (wager != null) {
+            if (machine != null) {
                 int value = savedState == null ? -1 : savedState.getInt("last-value", -1);
-                wager.apply(restore(value));
+                machine.apply(restore(value));
             }
-            dialog.findViewById(R.id.do_plus_10)
-                    .setOnClickListener(_v -> picker
-                            .setValue(10 + picker.getValue()));
-            dialog.findViewById(R.id.do_plus_100)
-                    .setOnClickListener(_v -> picker
-                            .setValue(100 + picker.getValue()));
-            dialog.findViewById(R.id.do_plus_1000)
-                    .setOnClickListener(_v -> picker
-                            .setValue(1000 + picker.getValue()));
-            dialog.findViewById(R.id.do_minus_10)
-                    .setOnClickListener(_v -> picker
-                            .setValue(-10 + picker.getValue()));
-            dialog.findViewById(R.id.do_minus_100)
-                    .setOnClickListener(_v -> picker
-                            .setValue(-100 + picker.getValue()));
-            dialog.findViewById(R.id.do_minus_1000)
-                    .setOnClickListener(_v -> picker
-                            .setValue(-1000 + picker.getValue()));
+            dialog.findViewById(R.id.do_plus_10).setOnClickListener(moveBy(10));
+            dialog.findViewById(R.id.do_plus_100).setOnClickListener(moveBy(100));
+            dialog.findViewById(R.id.do_plus_1000).setOnClickListener(moveBy(1000));
+            dialog.findViewById(R.id.do_minus_10).setOnClickListener(moveBy(-10));
+            dialog.findViewById(R.id.do_minus_100).setOnClickListener(moveBy(-100));
+            dialog.findViewById(R.id.do_minus_1000).setOnClickListener(moveBy(-1000));
         });
         return dialog;
     }
 
-    static WagerAction init(int max, int lastWager, WagerDialog.Return onReturn) {
+    private View.OnClickListener moveBy(int delta) {
+        return _v -> picker.setValue(picker.getValue() + delta);
+    }
+
+    static Action init(int max, int lastWager, WagerDialog.Return onReturn) {
         return (state, dialog) -> {
             state.max = max;
             state.initialValue = lastWager;
@@ -90,7 +98,7 @@ public class WagerDialog extends DialogFragment {
         };
     }
 
-    static WagerAction restore(int pickerValue) {
+    static Action restore(int pickerValue) {
         return (state, dialog) -> {
             dialog.picker.setMinValue(0);
             dialog.picker.setMaxValue(state.max);
@@ -100,7 +108,7 @@ public class WagerDialog extends DialogFragment {
         };
     }
 
-    static WagerAction ok(int wager) {
+    static Action ok(int wager) {
         return (state, dialog) -> {
             if (state.onReturn != null) {
                 state.onReturn.wagered(wager);
@@ -110,12 +118,3 @@ public class WagerDialog extends DialogFragment {
         };
     }
 }
-
-class WagerState extends BaseState<WagerState, WagerAction> {
-    int max;
-    int initialValue;
-    WagerDialog.Return onReturn;
-}
-
-interface WagerAction extends Sm.Action<WagerState, WagerAction, WagerDialog> {}
-
