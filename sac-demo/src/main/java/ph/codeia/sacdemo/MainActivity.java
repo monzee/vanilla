@@ -19,20 +19,85 @@ import java.io.Serializable;
 import java.text.NumberFormat;
 
 import ph.codeia.androidutils.AndroidMachine;
-import ph.codeia.arch.sm.BaseState;
 import ph.codeia.arch.sm.Machine;
+import ph.codeia.arch.sm.RootState;
 import ph.codeia.arch.sm.Sm;
 import ph.codeia.sacdemo.blackjack.BlackJack;
 
 public class MainActivity extends AppCompatActivity {
 
     private static class States {
-        MainState main = new MainState();
+        State main = new State();
         BlackJack.Round round;
     }
 
+    private static class State extends RootState<State, Action> implements Serializable {
+        boolean stale = true;
+        int bank = 20_000;
+        int lastWager;
+        transient File saveFile;
+    }
+
+    private interface Action extends Sm.Action<State, Action, MainActivity> {
+        Action NOOP = (state, _m) -> state;
+
+        Action READY = (state, main) -> {
+            main.show(state.bank);
+            return state;
+        };
+
+        Action WAGER = (state, main) -> {
+            FragmentManager fm = main.getSupportFragmentManager();
+            WagerDialog f = (WagerDialog) fm.findFragmentByTag("wager");
+            f = f != null ? f : new WagerDialog();
+            f.show(fm, "wager");
+            return state;
+        };
+
+        @SuppressLint("NewApi")
+        Action SAVE = (state, main) -> {
+            if (state.stale) {
+                return state;
+            }
+            return state.async(() -> {
+                FileOutputStream fileOut = new FileOutputStream(state.saveFile);
+                try (ObjectOutputStream out = new ObjectOutputStream(fileOut)) {
+                    out.writeObject(state);
+                    log("saved");
+                    return NOOP;
+                }
+            });
+        };
+
+        @SuppressLint("NewApi")
+        Action LOAD = (state, main) -> {
+            if (!state.stale) {
+                return state.plus(READY);
+            }
+            return state.async(() -> {
+                File file = state.saveFile;
+                if (file.createNewFile()) {
+                    return (futureState, _m) -> {
+                        futureState.stale = false;
+                        return futureState.plus(SAVE).plus(READY);
+                    };
+                }
+                try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(file))) {
+                    State saved = (State) in.readObject();
+                    log("loaded");
+                    return (futureState, futureMain) -> {
+                        futureState.bank = saved.bank;
+                        futureState.lastWager = saved.lastWager;
+                        futureState.stale = false;
+                        return futureState.plus(READY);
+                    };
+                }
+            });
+        };
+    }
+
     private Machine<BlackJack.Round, BlackJack.Play, BlackJack.Player> game;
-    private Machine.Fixed<MainState, MainAction, MainActivity> main;
+    private Machine.Fixed<State, Action, MainActivity> machine;
     private States states;
 
     private TextView bank;
@@ -42,38 +107,39 @@ public class MainActivity extends AppCompatActivity {
         states = (States) getLastCustomNonConfigurationInstance();
         if (states == null) {
             states = new States();
+            states.main.saveFile = new File(getCacheDir(), "bank");
         }
-        main = new AndroidMachine.Builder<>(states.main).build(AsyncTask.SERIAL_EXECUTOR, this);
+        machine = new AndroidMachine.Builder<>(states.main).build(AsyncTask.SERIAL_EXECUTOR, this);
         super.onCreate(savedInstanceState);
-        main.apply(MainAction.LOAD);
+        machine.apply(Action.LOAD);
         setContentView(R.layout.activity_main);
-        findViewById(R.id.do_play).setOnClickListener(_v -> main.apply(MainAction.WAGER));
+        findViewById(R.id.do_play).setOnClickListener(_v -> machine.apply(Action.WAGER));
         bank = (TextView) findViewById(R.id.bank);
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        main.start(MainAction.NOOP);
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        main.apply(MainAction.SAVE);
-        main.stop();
-    }
-
-    @Override
-    public Object onRetainCustomNonConfigurationInstance() {
-        return states;
     }
 
     @Override
     public void onAttachFragment(Fragment f) {
         if (f instanceof WagerDialog) {
-            main.applyNow(inject((WagerDialog) f));
+            machine.apply(inject((WagerDialog) f));
         }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        machine.start(Action.NOOP);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        machine.apply(Action.SAVE);
+        machine.stop();
+    }
+
+    @Override
+    public Object onRetainCustomNonConfigurationInstance() {
+        return states;
     }
 
     void tell(String message, Object... fmtArgs) {
@@ -84,99 +150,22 @@ public class MainActivity extends AppCompatActivity {
         bank.setText(NumberFormat.getIntegerInstance().format((long) funds));
     }
 
-    File saveFile() {
-        return new File(getCacheDir(), "bank");
-    }
-
-    void ping() {
-        main.apply(MainAction.NOOP);
-    }
-
-    static MainAction inject(WagerDialog f) {
-        return (state, main) -> {
-            f.inject(state.bank, state.lastWager, wager -> {
-                state.plus(wagered(wager));
-                main.ping();
-            });
-            return state;
-        };
-    }
-
-    static MainAction wagered(int wager) {
-        return (state, main) -> {
+    void wagered(int wager) {
+        machine.apply((state, main) -> {
             state.lastWager = wager;
             main.tell("playing for %d", wager);
             return state;
+        });
+    }
+
+    static Action inject(WagerDialog f) {
+        return (state, main) -> {
+            f.inject(state.bank, state.lastWager, main::wagered);
+            return state;
         };
     }
-}
 
-class MainState extends BaseState<MainState, MainAction> implements Serializable {
-    boolean stale = true;
-    int bank = 20_000;
-    int lastWager;
-}
-
-interface MainAction extends Sm.Action<MainState, MainAction, MainActivity> {
-    MainAction NOOP = (state, _m) -> state;
-
-    MainAction READY = (state, main) -> {
-        main.show(state.bank);
-        return state;
-    };
-
-    MainAction WAGER = (state, main) -> {
-        FragmentManager fm = main.getSupportFragmentManager();
-        WagerDialog f = (WagerDialog) fm.findFragmentByTag("wager");
-        f = f != null ? f : new WagerDialog();
-        f.show(fm, "wager");
-        return state;
-    };
-
-    @SuppressLint("NewApi")
-    MainAction LOAD = (state, main) -> {
-        if (!state.stale) {
-            return state.plus(READY);
-        }
-        File file = main.saveFile();
-        return state.async(() -> {
-            if (file.createNewFile()) {
-                return (futureState, _m) -> {
-                    futureState.stale = false;
-                    return futureState.plus(READY);
-                };
-            }
-            try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(file))) {
-                MainState saved = (MainState) in.readObject();
-                LOG.e("loaded");
-                return (futureState, futureMain) -> {
-                    futureState.bank = saved.bank;
-                    futureState.lastWager = saved.lastWager;
-                    futureState.stale = false;
-                    return futureState.plus(READY);
-                };
-            }
-        });
-    };
-
-    @SuppressLint("NewApi")
-    MainAction SAVE = (state, main) -> {
-        if (state.stale) {
-            return state;
-        }
-        File file = main.saveFile();
-        return state.async(() -> {
-            try (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(file))) {
-                out.writeObject(state);
-                LOG.e("saved");
-                return NOOP;
-            }
-        });
-    };
-
-    final class LOG {
-        static void e(String message, Object... fmtArgs) {
-            Log.e("mz", String.format(message, fmtArgs));
-        }
+    static void log(String message, Object... fmtArgs) {
+        Log.e("mz", String.format(message, fmtArgs));
     }
 }

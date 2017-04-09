@@ -7,6 +7,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.RunnableFuture;
 
 import ph.codeia.arch.ErrorHandler;
+import ph.codeia.meta.Untested;
 
 /**
  * This file is a part of the vanilla project.
@@ -17,8 +18,9 @@ import ph.codeia.arch.ErrorHandler;
  *
  * @param <S> The state type.
  * @param <A> The action type.
- * @param <C> The client type.
+ * @param <C> The receiver type.
  */
+@Untested
 public class Stepper<
         S extends Sm.State<S, A>,
         A extends Sm.Action<S, A, C>,
@@ -81,7 +83,7 @@ extends Machine<S, A, C> {
             return true;
         } catch (InterruptedException | ExecutionException e) {
             handle(e, client);
-            return false;
+            return true;
         }
     }
 

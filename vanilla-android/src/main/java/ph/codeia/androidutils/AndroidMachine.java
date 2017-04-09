@@ -5,6 +5,7 @@ import ph.codeia.arch.LogLevel;
 import ph.codeia.arch.Logger;
 import ph.codeia.arch.sm.Sm;
 import ph.codeia.arch.sm.Machine;
+import ph.codeia.meta.Untested;
 import ph.codeia.values.Do;
 
 /**
@@ -15,14 +16,17 @@ import ph.codeia.values.Do;
  * A state {@link Machine} that runs actions in the main looper.
  *
  * If no {@link ErrorHandler} is passed, the default implementation simply
- * rethrows any exception thrown in async actions in the main thread so that
+ * rethrows in the main thread any exception thrown in async actions so that
  * you get a crash instead of just silently logged errors. No doubt you'd
- * want to replace this with something more robust for release versions.
+ * want to replace this with something more robust for release versions. You
+ * can use {@link Builder#withErrorHandler(ErrorHandler)} to change the error
+ * handler.
  *
  * @param <S> The state type.
  * @param <A> The action type.
  * @param <C> The client type.
  */
+@Untested
 public class AndroidMachine<
         S extends Sm.State<S, A>,
         A extends Sm.Action<S, A, C>,
