@@ -39,6 +39,12 @@ import ph.codeia.values.Do;
 @Untested
 public class AndroidPermit implements Permit.Builder, Permission.Adapter {
 
+    /**
+     * Headless fragment helper for support clients.
+     *
+     * NEVER INSTANTIATE DIRECTLY! use one of the {@code #of()} static
+     * factories.
+     */
     public static class SupportHelper extends Fragment {
         Helper delegate;
 
@@ -70,6 +76,12 @@ public class AndroidPermit implements Permit.Builder, Permission.Adapter {
         }
     }
 
+    /**
+     * Headless fragment helper for platform clients.
+     *
+     * NEVER INSTANTIATE DIRECTLY! use one of the {@code #of()} static
+     * factories.
+     */
     public static class PlatformHelper extends android.app.Fragment {
         Helper delegate;
 
@@ -110,10 +122,9 @@ public class AndroidPermit implements Permit.Builder, Permission.Adapter {
     }
 
     /**
-     * Headless fragment that produces Permit builders and attaches to the
-     * permission response hook.
+     * Stores permit sets that may be submitted at anytime by a client.
      *
-     * NEVER INSTANTIATE DIRECTLY; use one of the {@code #of} static methods.
+     * Helper fragments forward to this class when the user grants arrive.
      */
     public static class Helper {
 
@@ -129,7 +140,7 @@ public class AndroidPermit implements Permit.Builder, Permission.Adapter {
         @Nullable private Do.Just<Permission.Appeal> beforeFallback = Permission.INSIST;
         @Nullable private Do.Just<Permission.Denial> afterFallback;
 
-        Helper(FragmentAdapter adapter) {
+        private Helper(FragmentAdapter adapter) {
             this.adapter = adapter;
         }
 
@@ -262,13 +273,8 @@ public class AndroidPermit implements Permit.Builder, Permission.Adapter {
     /**
      * Ensures only one instance of {@link Helper} is attached to the activity.
      *
-     * @param fm Does not work with platform fragment managers because that
-     *           means copy-pasted code or more fun visitor classes. You should
-     *           construct {@link AndroidPermit} directly and delegate to it in
-     *           #onRequestPermissionsResult.
+     * @param fm Support fragment manager.
      * @return a fragment that builds {@link Permit.Builder} objects.
-     * @see #AndroidPermit(android.app.Fragment, int) if you are using
-     * platform fragments or activities.
      */
     public static Helper of(FragmentManager fm) {
         final SupportHelper helper;
@@ -290,6 +296,12 @@ public class AndroidPermit implements Permit.Builder, Permission.Adapter {
         });
     }
 
+    /**
+     * Ensures only one instance of {@link Helper} is attached to the activity.
+     *
+     * @param fm Platform fragment manager.
+     * @return see {@link #of(FragmentManager)}
+     */
     public static Helper of(android.app.FragmentManager fm) {
         final PlatformHelper helper;
         android.app.Fragment f = fm.findFragmentByTag(Helper.TAG);
@@ -312,33 +324,44 @@ public class AndroidPermit implements Permit.Builder, Permission.Adapter {
     }
 
     /**
+     * Helper factory for support activities.
+     *
      * @param activity Provides a FragmentManager to attach the fragment to.
-     *                 Can't use platform activities here either. You will need
-     *                 to construct your own permit with
-     *                 {@link #AndroidPermit(Activity, int)}.
      * @return see {@link #of(FragmentManager)}
-     * @see #AndroidPermit(android.app.Fragment, int) same things apply when
-     * using platform activities instead of support.
      */
     public static Helper of(FragmentActivity activity) {
         return of(activity.getSupportFragmentManager());
     }
 
+    /**
+     * Helper factory for platform activities.
+     *
+     * @param activity Provides a platform fragment manager for the helper to
+     *                 attach to.
+     * @return see {@link #of(FragmentManager)}
+     */
     public static Helper of(Activity activity) {
         return of(activity.getFragmentManager());
     }
 
     /**
+     * Helper factory for support fragments.
+     *
      * @param fragment Uses its parent's FM. Call {@link #of(FragmentManager)}
-     *                 if you need/want to use a child FM. Again, only support
-     *                 fragments.
+     *                 if you need/want to use a child FM.
      * @return see {@link #of(FragmentManager)}
-     * @see #AndroidPermit(android.app.Fragment, int) for platform fragments.
      */
     public static Helper of(Fragment fragment) {
         return of(fragment.getFragmentManager());
     }
 
+    /**
+     * Helper factory for platform fragments.
+     *
+     * @param fragment Uses its parent FM.
+     * @return see {@link #of(FragmentManager)}
+     * @see #of(android.app.FragmentManager) to use a child FM.
+     */
     public static Helper of(android.app.Fragment fragment) {
         return of(fragment.getFragmentManager());
     }
@@ -391,13 +414,7 @@ public class AndroidPermit implements Permit.Builder, Permission.Adapter {
     }
 
     /**
-     * Associate with a platform fragment; requires Marshmallow or later.
-     *
-     * When using platform fragments, you get no help from the library. You
-     * will have to declare {@link Permit} members, submit them and override
-     * {@link android.app.Fragment#onRequestPermissionsResult(int, String[], int[])}
-     * where you need to call {@link Permit#check(int, String[], int[])} and
-     * {@link Permit#dispatch()}.
+     * Associate with a platform fragment.
      *
      * @param client A platform fragment.
      * @param code Unique identifier.
