@@ -4,8 +4,8 @@ buildscript {
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:2.3.0'
-        classpath 'me.tatarka:gradle-retrolambda:3.2.5'
+        classpath 'com.android.tools.build:gradle:2.3.1'
+        classpath 'me.tatarka:gradle-retrolambda:3.6.0'
     }
 }
 
@@ -22,12 +22,12 @@ task clean(type: Delete) {
     delete rootProject.buildDir
 }
 
-def node(Closure c) {
+static def node(Closure c) {
     c.resolveStrategy = Closure.DELEGATE_FIRST
     c
 }
 
-def pomMetadata(meta) {
+static def pomMetadata(meta) {
     node {
         ['name', 'description', 'url'].each { it in meta && "$it"(meta[it]) }
 

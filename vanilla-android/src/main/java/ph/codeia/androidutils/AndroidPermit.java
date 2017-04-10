@@ -6,7 +6,6 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.support.annotation.RequiresApi;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentActivity;
@@ -41,12 +40,93 @@ import ph.codeia.values.Do;
 public class AndroidPermit implements Permit.Builder, Permission.Adapter {
 
     /**
-     * Headless fragment that produces Permit builders and attaches to the
-     * permission response hook.
+     * Headless fragment helper for support clients.
      *
-     * NEVER INSTANTIATE DIRECTLY; use one of the {@code #of} static methods.
+     * NEVER INSTANTIATE DIRECTLY! use one of the {@code #of()} static
+     * factories.
      */
-    public static class Helper extends Fragment {
+    public static class SupportHelper extends Fragment {
+        Helper delegate;
+
+        @Override
+        public void onResume() {
+            super.onResume();
+            if (delegate != null) {
+                delegate.dispatch();
+            }
+        }
+
+        @Override
+        public void onDetach() {
+            super.onDetach();
+            if (delegate != null) {
+                delegate.dispose();
+                delegate = null;
+            }
+        }
+
+        @Override
+        public void onRequestPermissionsResult(
+                int requestCode,
+                @NonNull String[] permissions,
+                @NonNull int[] grantResults) {
+            if (delegate != null) {
+                delegate.check(requestCode, permissions, grantResults);
+            }
+        }
+    }
+
+    /**
+     * Headless fragment helper for platform clients.
+     *
+     * NEVER INSTANTIATE DIRECTLY! use one of the {@code #of()} static
+     * factories.
+     */
+    public static class PlatformHelper extends android.app.Fragment {
+        Helper delegate;
+
+        @Override
+        public void onResume() {
+            super.onResume();
+            if (delegate != null) {
+                delegate.dispatch();
+            }
+        }
+
+        @Override
+        public void onDetach() {
+            super.onDetach();
+            if (delegate != null) {
+                delegate.dispose();
+                delegate = null;
+            }
+        }
+
+        @Override
+        public void onRequestPermissionsResult(
+                int requestCode,
+                @NonNull String[] permissions,
+                @NonNull int[] grantResults) {
+            if (delegate != null) {
+                delegate.check(requestCode, permissions, grantResults);
+            }
+        }
+    }
+
+    private interface FragmentAdapter {
+        void match(Case of);
+        interface Case {
+            void support(SupportHelper fragment);
+            void platform(PlatformHelper fragment);
+        }
+    }
+
+    /**
+     * Stores permit sets that may be submitted at anytime by a client.
+     *
+     * Helper fragments forward to this class when the user grants arrive.
+     */
+    public static class Helper {
 
         private static final String TAG = Helper.class.getCanonicalName();
 
@@ -56,8 +136,13 @@ public class AndroidPermit implements Permit.Builder, Permission.Adapter {
         private final AtomicInteger counter = new AtomicInteger(1 << 15);
         private final SparseArray<Permit> requests = new SparseArray<>();
         private final Queue<Permit> deferred = new ArrayDeque<>();
+        private final FragmentAdapter adapter;
         @Nullable private Do.Just<Permission.Appeal> beforeFallback = Permission.INSIST;
         @Nullable private Do.Just<Permission.Denial> afterFallback;
+
+        private Helper(FragmentAdapter adapter) {
+            this.adapter = adapter;
+        }
 
         /**
          * Sets the default appeal callback.
@@ -86,10 +171,28 @@ public class AndroidPermit implements Permit.Builder, Permission.Adapter {
          * @return a permit builder wrapping {@link AndroidPermit}
          */
         public Permit.Builder make(final int code) {
+            final AndroidPermit androidPermit = new FragmentAdapter.Case() {
+                AndroidPermit permit;
+
+                AndroidPermit permit() {
+                    adapter.match(this);
+                    return permit;
+                }
+
+                @Override
+                public void support(SupportHelper fragment) {
+                    fragment.delegate = Helper.this;
+                    permit = new AndroidPermit(fragment, code);
+                }
+
+                @Override
+                public void platform(PlatformHelper fragment) {
+                    fragment.delegate = Helper.this;
+                    permit = new AndroidPermit(fragment, code);
+                }
+            }.permit();
             return new Permit.Builder() {
-                Permit.Builder b = new AndroidPermit(Helper.this, code)
-                        .before(beforeFallback)
-                        .after(afterFallback);
+                Permit.Builder b = androidPermit.before(beforeFallback).after(afterFallback);
 
                 @Override
                 public Permit.Builder ask(String... permissions) {
@@ -146,33 +249,23 @@ public class AndroidPermit implements Permit.Builder, Permission.Adapter {
             return make(code).ask(permissions);
         }
 
-        @Override
-        public void onResume() {
-            super.onResume();
+        void dispatch() {
             for (Iterator<Permit> it = deferred.iterator(); it.hasNext(); it.remove()) {
                 it.next().dispatch();
             }
         }
 
-        @Override
-        public void onDetach() {
-            super.onDetach();
+        void dispose() {
             requests.clear();
             beforeFallback = null;
             afterFallback = null;
         }
 
-        @Override
-        public void onRequestPermissionsResult(
-                int requestCode,
-                @NonNull String[] permissions,
-                @NonNull int[] grantResults) {
+        void check(int requestCode, String[] permissions, int[] grantResults) {
             Permit p = requests.get(requestCode);
             if (p != null && p.check(requestCode, permissions, grantResults)) {
                 deferred.add(p);
-                return;
             }
-            super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         }
     }
 
@@ -180,53 +273,104 @@ public class AndroidPermit implements Permit.Builder, Permission.Adapter {
     /**
      * Ensures only one instance of {@link Helper} is attached to the activity.
      *
-     * @param fm Does not work with platform fragment managers because that
-     *           means copy-pasted code or more fun visitor classes. You should
-     *           construct {@link AndroidPermit} directly and delegate to it in
-     *           #onRequestPermissionsResult.
+     * @param fm Support fragment manager.
      * @return a fragment that builds {@link Permit.Builder} objects.
-     * @see #AndroidPermit(android.app.Fragment, int) if you are using
-     * platform fragments or activities.
      */
     public static Helper of(FragmentManager fm) {
+        final SupportHelper helper;
         Fragment f = fm.findFragmentByTag(Helper.TAG);
-        if (f == null) {
-            f = new Helper();
-            fm.beginTransaction().add(f, Helper.TAG).commitNow();
+        if (f != null) {
+            helper = (SupportHelper) f;
+            if (helper.delegate != null) {
+                return helper.delegate;
+            }
+        } else {
+            helper = new SupportHelper();
+            fm.beginTransaction().add(helper, Helper.TAG).commitNow();
         }
-        return (Helper) f;
+        return new Helper(new FragmentAdapter() {
+            @Override
+            public void match(Case of) {
+                of.support(helper);
+            }
+        });
     }
 
     /**
-     * @param activity Provides a FragmentManager to attach the fragment to.
-     *                 Can't use platform activities here either. You will need
-     *                 to construct your own permit with
-     *                 {@link #AndroidPermit(Activity, int)}.
+     * Ensures only one instance of {@link Helper} is attached to the activity.
+     *
+     * @param fm Platform fragment manager.
      * @return see {@link #of(FragmentManager)}
-     * @see #AndroidPermit(android.app.Fragment, int) same things apply when
-     * using platform activities instead of support.
+     */
+    public static Helper of(android.app.FragmentManager fm) {
+        final PlatformHelper helper;
+        android.app.Fragment f = fm.findFragmentByTag(Helper.TAG);
+        if (f != null) {
+            helper = (PlatformHelper) f;
+            if (helper.delegate != null) {
+                return helper.delegate;
+            }
+        } else {
+            helper = new PlatformHelper();
+            fm.beginTransaction().add(helper, Helper.TAG).commit();
+            fm.executePendingTransactions();
+        }
+        return new Helper(new FragmentAdapter() {
+            @Override
+            public void match(Case of) {
+                of.platform(helper);
+            }
+        });
+    }
+
+    /**
+     * Helper factory for support activities.
+     *
+     * @param activity Provides a FragmentManager to attach the fragment to.
+     * @return see {@link #of(FragmentManager)}
      */
     public static Helper of(FragmentActivity activity) {
         return of(activity.getSupportFragmentManager());
     }
 
     /**
-     * @param fragment Uses its parent's FM. Call {@link #of(FragmentManager)}
-     *                 if you need/want to use a child FM. Again, only support
-     *                 fragments.
+     * Helper factory for platform activities.
+     *
+     * @param activity Provides a platform fragment manager for the helper to
+     *                 attach to.
      * @return see {@link #of(FragmentManager)}
-     * @see #AndroidPermit(android.app.Fragment, int) for platform fragments.
+     */
+    public static Helper of(Activity activity) {
+        return of(activity.getFragmentManager());
+    }
+
+    /**
+     * Helper factory for support fragments.
+     *
+     * @param fragment Uses its parent's FM. Call {@link #of(FragmentManager)}
+     *                 if you need/want to use a child FM.
+     * @return see {@link #of(FragmentManager)}
      */
     public static Helper of(Fragment fragment) {
         return of(fragment.getFragmentManager());
     }
 
+    /**
+     * Helper factory for platform fragments.
+     *
+     * @param fragment Uses its parent FM.
+     * @return see {@link #of(FragmentManager)}
+     * @see #of(android.app.FragmentManager) to use a child FM.
+     */
+    public static Helper of(android.app.Fragment fragment) {
+        return of(fragment.getFragmentManager());
+    }
+
     private interface Client {
-        void match(Case some);
+        void match(Case of);
         interface Case {
             void activity(Activity client);
             void fragment(Fragment client);
-            @RequiresApi(Build.VERSION_CODES.M)
             void platformFragment(android.app.Fragment client);
         }
     }
@@ -246,8 +390,8 @@ public class AndroidPermit implements Permit.Builder, Permission.Adapter {
     public AndroidPermit(final Activity client, int code) {
         this.client = new Client() {
             @Override
-            public void match(Case some) {
-                some.activity(client);
+            public void match(Case of) {
+                of.activity(client);
             }
         };
         this.code = code;
@@ -261,8 +405,8 @@ public class AndroidPermit implements Permit.Builder, Permission.Adapter {
     public AndroidPermit(final Fragment client, int code) {
         this.client = new Client() {
             @Override
-            public void match(Case some) {
-                some.fragment(client);
+            public void match(Case of) {
+                of.fragment(client);
             }
         };
         this.code = code;
@@ -270,27 +414,20 @@ public class AndroidPermit implements Permit.Builder, Permission.Adapter {
     }
 
     /**
-     * Associate with a platform fragment; requires Marshmallow or later.
-     *
-     * When using platform fragments, you get no help from the library. You
-     * will have to declare {@link Permit} members, submit them and override
-     * {@link android.app.Fragment#onRequestPermissionsResult(int, String[], int[])}
-     * where you need to call {@link Permit#check(int, String[], int[])} and
-     * {@link Permit#dispatch()}.
+     * Associate with a platform fragment.
      *
      * @param client A platform fragment.
      * @param code Unique identifier.
      */
-    @RequiresApi(Build.VERSION_CODES.M)
     public AndroidPermit(final android.app.Fragment client, int code) {
         this.client = new Client() {
             @Override
-            public void match(Case some) {
-                some.platformFragment(client);
+            public void match(Case of) {
+                of.platformFragment(client);
             }
         };
         this.code = code;
-        this.context = client.getContext();
+        context = client.getActivity().getApplicationContext();
     }
 
     @Override
@@ -331,10 +468,25 @@ public class AndroidPermit implements Permit.Builder, Permission.Adapter {
                         client.requestPermissions(request, code);
                     }
 
-                    @RequiresApi(Build.VERSION_CODES.M)
                     @Override
                     public void platformFragment(android.app.Fragment client) {
-                        client.requestPermissions(request, code);
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                            client.requestPermissions(request, code);
+                            return;
+                        }
+                        PackageManager pm = context.getPackageManager();
+                        String packageName = context.getPackageName();
+                        int[] grants = new int[request.length];
+                        for (int i = 0; i < request.length; i++) {
+                            grants[i] = pm.checkPermission(request[i], packageName);
+                        }
+                        check(code, request, grants);
+                        client.getActivity().runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                dispatch();
+                            }
+                        });
                     }
                 });
             }
@@ -430,10 +582,10 @@ public class AndroidPermit implements Permit.Builder, Permission.Adapter {
                 result = client.shouldShowRequestPermissionRationale(permission);
             }
 
-            @RequiresApi(Build.VERSION_CODES.M)
             @Override
             public void platformFragment(android.app.Fragment client) {
-                result = client.shouldShowRequestPermissionRationale(permission);
+                result = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
+                        client.shouldShowRequestPermissionRationale(permission);
             }
         }.result();
     }

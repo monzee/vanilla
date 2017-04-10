@@ -2,9 +2,9 @@ language: java
 
 jdk: oraclejdk8
 
-install: gradle --version
+install: ./gradlew --version
 
-script: gradle check -c settings-travis-ci.gradle -PBINTRAY_USER=nope -PBINTRAY_API_KEY=doublenope
+script: ./gradlew check -c settings-travis-ci.gradle -PBINTRAY_USER=nope -PBINTRAY_API_KEY=doublenope
 
 before_cache:
     - rm -f $HOME/.gradle/caches/modules-2/modules-2.lock
