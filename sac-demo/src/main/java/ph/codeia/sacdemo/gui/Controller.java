@@ -19,14 +19,14 @@ public class Controller implements BlackJack.Player {
 
     }
 
-    private final Machine.Fixed<BlackJack.Round, BlackJack.Play, BlackJack.Player> model;
+    private final Machine.Bound<BlackJack.Round, BlackJack.Play, BlackJack.Player> model;
     private final Button doHit;
     private final Button doStand;
     private final Button doDoubleDown;
     private final Button doSurrender;
 
     public Controller(
-            Machine.Fixed<BlackJack.Round, BlackJack.Play, BlackJack.Player> model,
+            Machine.Bound<BlackJack.Round, BlackJack.Play, BlackJack.Player> model,
             Button doHit,
             Button doStand,
             Button doDoubleDown,

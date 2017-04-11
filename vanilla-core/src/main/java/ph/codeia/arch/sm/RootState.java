@@ -13,6 +13,7 @@ import ph.codeia.meta.Untested;
  */
 
 @Untested
+@SuppressWarnings("unchecked")
 public abstract class RootState<
         S extends Sm.State<S, A>,
         A extends Sm.Action<S, A, ?>>
@@ -31,7 +32,6 @@ implements Sm.State<S, A> {
         return backlog;
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public S async(Future<A> futureAction) {
         futures.add(futureAction);
@@ -46,7 +46,6 @@ implements Sm.State<S, A> {
         return async(Machine.now(action));
     }
 
-    @SuppressWarnings("unchecked")
     public S apply(Runnable action) {
         action.run();
         return (S) this;

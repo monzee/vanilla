@@ -18,13 +18,32 @@ public interface Sm {
      *
      * The state also holds a queue of future actions that are waiting to be
      * applied by the machine. An action that produces a state might be split
-     * into two parts by an {@link #async(Future)} call. The state keeps track
-     * of running actions in the background and receives the completed future
-     * when they return. The completed future is then folded into the state
-     * by the machine if/when it is started.
+     * into two parts by an {@link #async(Future)} call. The synchronous half is
+     * immediately applied. The other half is run and synchronously awaited by
+     * the machine in a background thread and then applied in the main thread
+     * afterwards. It can be viewed as a transition that produces an output that
+     * is asynchronously fed back to the machine.
+     *
+     * Since the machine might be stopped and/or abandoned while an action is
+     * in flight, the state has to track the number of running actions in the
+     * background which a future machine may observe in a background thread when
+     * it starts. For this to work, all state objects must share the same future
+     * action queue and backlog tracker. This can be accomplished by 1) using a
+     * single mutable state object throughout, or 2) making new states copy or
+     * share the previous state's future queue and backlog. The former is
+     * simpler, but the default implementation provides a way to do the latter
+     * if you really want immutable states.
+     *
+     * Recommendation: use the root state as a mutable container of a product
+     * of immutable states (enums or visitor types). The root state can also
+     * hold miscellaneous data associated with some of the substates if you
+     * decide to use enums as state which cannot have their own data unlike
+     * visitor types or sum types in functional languages.
      *
      * @param <S> The instantiated state type.
      * @param <A> The instantiated action type.
+     * @see RootState for the default implementation which also adds some
+     * convenience functions.
      */
     interface State<
             S extends State<S, A>,
@@ -37,10 +56,10 @@ public interface Sm {
         S async(Future<A> futureAction);
 
         /**
-         * @return an object that's kinda like a reverse semaphore, or a
-         * reusable countdown latch that can be incremented at any time. Used
-         * when a machine is started to get notified when past async actions
-         * have completed so that they may be folded by the new machine.
+         * @return an object that's kinda like a reversible countdown latch that
+         * can be incremented at any time. Used when a machine is started to get
+         * notified when past async actions have completed so that they may be
+         * folded by a future machine.
          */
         Backlog backlog();
     }

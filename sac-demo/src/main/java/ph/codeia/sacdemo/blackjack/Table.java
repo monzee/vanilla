@@ -33,9 +33,9 @@ public interface Table {
 
     class Dealer implements Phase.Case {
         private static final Play DRAW = (game, io) -> game.dealerDraws();
-        private final Machine.Fixed<Game, Play, Io> machine;
+        private final Machine.Bound<Game, Play, Io> machine;
 
-        public Dealer(Machine.Fixed<Game, Play, Io> machine) {
+        public Dealer(Machine.Bound<Game, Play, Io> machine) {
             this.machine = machine;
         }
 

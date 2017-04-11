@@ -97,7 +97,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private Machine<BlackJack.Round, BlackJack.Play, BlackJack.Player> game;
-    private Machine.Fixed<State, Action, MainActivity> machine;
+    private Machine.Bound<State, Action, MainActivity> machine;
     private States states;
 
     private TextView bank;

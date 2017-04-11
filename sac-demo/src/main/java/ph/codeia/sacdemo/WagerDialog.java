@@ -33,7 +33,7 @@ public class WagerDialog extends DialogFragment {
 
     private NumberPicker picker;
 
-    private Machine.Fixed<State, Action, WagerDialog> machine;
+    private Machine.Bound<State, Action, WagerDialog> machine;
 
     void inject(int max, int lastWager, Return onReturn) {
         machine = new AndroidMachine.Builder<>(new State()).build(this);

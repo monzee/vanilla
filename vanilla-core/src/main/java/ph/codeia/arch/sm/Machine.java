@@ -23,6 +23,15 @@ public abstract class Machine<
         C>
 implements ErrorHandler<C> {
 
+    /**
+     * Abstract machine factory that can also make a bound machine.
+     *
+     * Meant to be implemented in a nested class in a concrete {@link Machine}.
+     *
+     * @param <S> The state type.
+     * @param <A> The action type.
+     * @param <C> The receiver type.
+     */
     public static abstract class Builder<
             S extends Sm.State<S, A>,
             A extends Sm.Action<S, A, C>,
@@ -41,12 +50,12 @@ implements ErrorHandler<C> {
 
         public abstract Machine<S, A, C> build();
 
-        public Fixed<S, A, C> build(C client) {
+        public Bound<S, A, C> build(C client) {
             return build(IMMEDIATE, client);
         }
 
-        public Fixed<S, A, C> build(Executor executor, C client) {
-            return new Fixed<>(executor, client, build());
+        public Bound<S, A, C> build(Executor executor, C client) {
+            return new Bound<>(executor, client, build());
         }
     }
 
@@ -56,19 +65,21 @@ implements ErrorHandler<C> {
      *
      * You'd probably want to use this most of the time instead of a plain
      * {@link Machine}. You can still get the wrapped machine via {@link
-     * Fixed#machine} if you need to run something with a different executor
+     * Bound#machine} if you need to run something with a different executor
      * or receiver.
      *
-     * Be careful not to leak this object and thus the receiver. That is the
-     * main reason why the {@link Machine} API explicitly asks for the executor
-     * and receiver in every step. Be especially careful if your receiver type
-     * is an Android Activity, Fragment or View or holds a reference to them.
+     * The receiver instance is immediately wrapped in a weak reference before
+     * being assigned to a member so this shouldn't cause the receiver to live
+     * longer than it would have if it weren't bound. If your receiver isn't
+     * an Android activity or fragment, make sure to have at least one strong
+     * reference to the receiver somewhere or the wrapped machine would be
+     * passing nulls to actions.
      *
      * @param <S> The state type.
      * @param <A> The action type.
      * @param <C> The receiver type.
      */
-    public static class Fixed<
+    public static class Bound<
             S extends Sm.State<S, A>,
             A extends Sm.Action<S, A, C>,
             C> {
@@ -76,28 +87,48 @@ implements ErrorHandler<C> {
         private final WeakReference<C> client;
         private final Executor executor;
 
-        public Fixed(Executor executor, C client, Machine<S, A, C> machine) {
+        public Bound(Executor executor, C client, Machine<S, A, C> machine) {
             this.machine = machine;
             this.client = new WeakReference<>(client);
             this.executor = executor;
         }
 
+        /**
+         * @see #start(Object)
+         */
         public void start() {
             machine.start(client.get());
         }
 
+        /**
+         * @param action Action to perform when all pending actions complete.
+         * @see #start(Executor, Object, Sm.Action)
+         */
         public void start(A action) {
             machine.start(executor, client.get(), action);
         }
 
+        /**
+         * @see Machine#stop()
+         */
         public void stop() {
             machine.stop();
         }
 
+        /**
+         * @param action The action to fold.
+         * @see #apply(Executor, Object, Sm.Action)
+         */
         public void apply(A action) {
             machine.apply(executor, client, action);
         }
 
+        /**
+         * Folds the action and runs any resulting future in the same thread.
+         *
+         * @param action The action to fold.
+         * @see #apply(Executor, Object, Sm.Action)
+         */
         public void applyNow(A action) {
             machine.apply(IMMEDIATE, client, action);
         }
