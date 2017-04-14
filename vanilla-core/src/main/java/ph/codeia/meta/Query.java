@@ -31,6 +31,8 @@ public @interface Query {
         String value();
     }
 
+    enum Position { FIRST, LAST }
+
     /**
      * literal row filter, no substitutions
      */
@@ -44,6 +46,12 @@ public @interface Query {
         String[] value();
 
         /**
+         * @return where this clause should be placed if other predicates are
+         * defined on fields
+         */
+        Position pos() default Position.FIRST;
+
+        /**
          * generates {@code '(AND) COL = ?'} for every value
          */
         @Target(ElementType.FIELD)
@@ -53,7 +61,7 @@ public @interface Query {
             /**
              * @return column to test for equality
              */
-            String[] value();
+            String value();
         }
 
         /**
@@ -66,7 +74,7 @@ public @interface Query {
             /**
              * @return column to test for equality
              */
-            String[] value();
+            String value();
         }
 
         /**
@@ -79,7 +87,7 @@ public @interface Query {
             /**
              * @return column to test for equality
              */
-            String[] value();
+            String value();
         }
 
         /**
@@ -92,7 +100,7 @@ public @interface Query {
             /**
              * @return column to test for equality
              */
-            String[] value();
+            String value();
         }
 
         /**
@@ -105,7 +113,7 @@ public @interface Query {
             /**
              * @return column to test for equality
              */
-            String[] value();
+            String value();
         }
 
         /**
@@ -115,7 +123,7 @@ public @interface Query {
         @Retention(RetentionPolicy.SOURCE)
         @Inherited
         @interface NotEq {
-            String[] value();
+            String value();
         }
 
         /**
@@ -125,7 +133,7 @@ public @interface Query {
         @Retention(RetentionPolicy.SOURCE)
         @Inherited
         @interface In {
-            String[] value();
+            String value();
         }
 
         /**
@@ -135,7 +143,7 @@ public @interface Query {
         @Retention(RetentionPolicy.SOURCE)
         @Inherited
         @interface NotIn {
-            String[] value();
+            String value();
         }
 
         /**
@@ -145,7 +153,7 @@ public @interface Query {
         @Retention(RetentionPolicy.SOURCE)
         @Inherited
         @interface Like {
-            String[] value();
+            String value();
         }
 
         /**
@@ -155,7 +163,7 @@ public @interface Query {
         @Retention(RetentionPolicy.SOURCE)
         @Inherited
         @interface NotLike {
-            String[] value();
+            String value();
         }
 
         /**
@@ -164,9 +172,7 @@ public @interface Query {
         @Target(ElementType.TYPE)
         @Retention(RetentionPolicy.SOURCE)
         @Inherited
-        @interface Null {
-            String[] value();
-        }
+        @interface Null {}
 
         /**
          * generates {@code '(AND) COL is not NULL'} for every value
@@ -174,64 +180,73 @@ public @interface Query {
         @Target(ElementType.TYPE)
         @Retention(RetentionPolicy.SOURCE)
         @Inherited
-        @interface NotNull {
-            String[] value();
-        }
+        @interface NotNull {}
     }
 
     /**
      * row sorting fields
      */
-    @Target(ElementType.TYPE)
+    @Target(ElementType.FIELD)
     @Retention(RetentionPolicy.SOURCE)
     @Inherited
     @interface Order {
         /**
-         * @return columns to order by
+         * @return sort priority
          */
-        String[] value();
+        int value() default -1;
 
         /**
-         * generates {@code 'COL DESC'} for every value
+         * generates {@code 'COL DESC'} for every field
          */
-        @Target(ElementType.TYPE)
+        @Target(ElementType.FIELD)
         @Retention(RetentionPolicy.SOURCE)
         @interface Descending {
             /**
-             * @return columns to order by in reverse
+             * @return sort priority
              */
-            String[] value();
+            int value() default -1;
         }
+    }
+
+    interface Template<T extends Template<T>> {
+        T copy();
     }
 
     interface Result<T> extends Iterable<T> {
         boolean isEmpty();
     }
 
+    interface Row {
+        int getInt(int column);
+        String getString(int column);
+        byte[] getBlob(int column);
+        float getFloat(int column);
+        long getLong(int column);
+        short getShort(int column);
+    }
 
     @Query("posts")
-    @Order.Descending("Date")
-    class BlogPostByAuthor implements Cloneable {
+    class BlogPostByAuthor implements Template<BlogPostByAuthor> {
+        @Where.Eq("AuthorId") final int authorId;
+
         @Select("_ID") int id;
         @Select("Title") String title;
         @Select("Body") String body;
-        @Select("Date") long timeStamp;
-
-        @Where.Eq("AuthorId") final int authorId;
+        @Select("Date") @Order.Descending long timeStamp;
 
         public BlogPostByAuthor(int authorId) {
             this.authorId = authorId;
         }
 
         @Override
-        public BlogPostByAuthor clone() throws CloneNotSupportedException {
-            return (BlogPostByAuthor) super.clone();
+        public BlogPostByAuthor copy() {
+            return new BlogPostByAuthor(authorId);
         }
     }
 
-    // Query.Result<BlogPostByAuthor> results = AndroidContent
-    //      .of(new BlogPostByAuthor(123))
-    //      .resolve(getContentResolver());
+    // Query.Result<BlogPostByAuthor> results = GenerateQuery
+    //      .from(new BlogPostByAuthor(123))
+    //      .query(new AndroidContent(getContentResolver(), contentUri));
 
     class BlogPostByAuthor_GeneratedQuery {
         private final BlogPostByAuthor receiver;
@@ -241,7 +256,7 @@ public @interface Query {
             this.receiver = receiver;
         }
 
-        public String path() {
+        public String dataset() {
             return "posts";
         }
 
@@ -270,24 +285,12 @@ public @interface Query {
         }
 
         public BlogPostByAuthor map(Row cursor) {
-            BlogPostByAuthor row = receiver;
-            try {
-                row = receiver.clone();
-            } catch (CloneNotSupportedException ignored) {}
+            BlogPostByAuthor row = receiver.copy();
             row.id = cursor.getInt(0);
             row.title = cursor.getString(1);
             row.body = cursor.getString(2);
             row.timeStamp = cursor.getLong(3);
             return row;
         }
-    }
-
-    interface Row {
-        int getInt(int column);
-        String getString(int column);
-        byte[] getBlob(int column);
-        float getFloat(int column);
-        long getLong(int column);
-        short getShort(int column);
     }
 }

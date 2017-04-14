@@ -35,6 +35,7 @@
                 <action android:name="android.intent.action.MAIN" />
             </intent-filter>
         </activity>
+        <activity android:name=".QueryTestActivity"></activity>
     </application>
 
 </manifest>
