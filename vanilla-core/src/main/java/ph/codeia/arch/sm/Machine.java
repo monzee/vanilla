@@ -1,7 +1,9 @@
 package ph.codeia.arch.sm;
 
 import java.lang.ref.WeakReference;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -219,9 +221,13 @@ implements ErrorHandler<C> {
                 }
                 state = action.fold(state, clientRef.get());
                 final Backlog work = state.backlog();
-                for (Iterator<Future<A>> it = state.iterator(); it.hasNext();) {
-                    final Future<A> futureAction = it.next();
-                    it.remove();
+                List<Future<A>> generation = new ArrayList<>();
+                synchronized (state) {
+                    for (Iterator<Future<A>> it = state.iterator(); it.hasNext(); it.remove()) {
+                        generation.add(it.next());
+                    }
+                }
+                for (final Future<A> futureAction : generation) {
                     work.started();
                     worker.execute(new Runnable() {
                         @Override
