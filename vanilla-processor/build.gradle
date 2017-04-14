@@ -1,8 +1,24 @@
+plugins {
+    id 'net.ltgt.apt' version '0.9'
+}
+
 apply plugin: 'java'
+apply plugin: 'me.tatarka.retrolambda'
 
 dependencies {
     compile fileTree(dir: 'libs', include: ['*.jar'])
+    compile project(path: ':vanilla-core')
+    compile "com.squareup:javapoet:1.8.0"
+    compile "com.google.auto:auto-common:0.6"
+    compile "com.google.auto.service:auto-service:1.0-rc2"
+    apt "com.google.auto.service:auto-service:1.0-rc2"
+    testCompile "com.google.testing.compile:compile-testing:0.9"
+    testCompile "com.google.truth:truth:0.30"
 }
 
-sourceCompatibility = "1.7"
-targetCompatibility = "1.7"
+// make android studio test runner find the test resources
+task copyTestResources(type: Copy) {
+    from sourceSets.test.resources
+    into sourceSets.test.output.classesDir
+}
+processTestResources.dependsOn copyTestResources
