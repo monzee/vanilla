@@ -16,6 +16,9 @@ import ph.codeia.meta.Untested;
 /**
  * A machine that synchronously applies actions one at a time.
  *
+ * Meant to be used in tests so that you could do assertions in between async
+ * actions.
+ *
  * @param <S> The state type.
  * @param <A> The action type.
  * @param <C> The receiver type.
@@ -50,6 +53,11 @@ extends Machine<S, A, C> {
         } else {
             throw new RuntimeException(error);
         }
+    }
+
+    @Override
+    protected void main(Runnable block) {
+        block.run();
     }
 
     /**

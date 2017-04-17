@@ -217,7 +217,7 @@ This has the disadvantage of needing to declare fields for every permission set
 and having the action declared far away from where it actually happens. You lose
 the local context where the action is invoked. If you need to close over local
 variables in a granted callback, they now need to be declared as fields and be
-serialized/deserialized. I am not a big fan of that, that's why this is
+serialized/deserialized somehow. I am not a big fan of that, that's why this is
 presented merely as an option. The permission dialog appears so infrequently
 that I think it's often times fine to use the sloppy style.
 
@@ -229,9 +229,11 @@ This library is published at jcenter.
 ```gradle
 dependencies {
     // ...
-    compile "ph.codeia.vanilla:vanilla-android:0.3.4"
+    compile "ph.codeia.vanilla:vanilla-android:0.3.5"
 }
 ```
+I might not always remember to update this part. Scroll up to the top of the
+README and look at the latest version badge from bintray to be sure.
 
 Retrolambda is highly recommended.
 
@@ -240,6 +242,18 @@ plugins {
     id "me.tatarka.retrolambda" version "3.6.0"
 }
 ```
+
+### Hacking
+
+Included in the build script is a task to create local maven packages. If you
+need to modify the source,
+
+- Clone this repo, do your edits, maybe change the version number (edit the
+  `gradle.properties` file).
+- Run `./gradlew pTML -PBINTRAY_USER=asdf -PBINTRAY_API_KEY=asdf`.
+- In the project build script where you'll use the modified library, add
+  `mavenLocal()` to the `repositories` block.
+- Add a `compile` dependency with a new version number if you changed it.
 
 
 ## License

@@ -18,7 +18,6 @@ import ph.codeia.meta.Untested;
  * This file is a part of the vanilla project.
  */
 
-@Untested
 public abstract class Machine<
         S extends Sm.State<S, A>,
         A extends Sm.Action<S, A, C>,
@@ -41,21 +40,40 @@ implements ErrorHandler<C> {
         protected final S state;
         protected ErrorHandler<C> handler;
 
+        /**
+         * @param state The initial state.
+         */
         public Builder(S state) {
             this.state = state;
         }
 
+        /**
+         * @param handler The function to run when an async action throws.
+         * @return the builder.
+         */
         public Builder<S, A, C> withErrorHandler(ErrorHandler<C> handler) {
             this.handler = handler;
             return this;
         }
 
+        /**
+         * @return a Machine instance.
+         */
         public abstract Machine<S, A, C> build();
 
+        /**
+         * @param client The receiver object to be passed to actions.
+         * @return a Machine bound to this receiver instance.
+         */
         public Bound<S, A, C> build(C client) {
             return build(IMMEDIATE, client);
         }
 
+        /**
+         * @param executor The context where actions are run.
+         * @param client The receiver object to be passed to actions.
+         * @return a Machine bound to this executor and receiver.
+         */
         public Bound<S, A, C> build(Executor executor, C client) {
             return new Bound<>(executor, client, build());
         }
@@ -161,18 +179,34 @@ implements ErrorHandler<C> {
     protected S state;
     protected boolean isRunning = false;
 
+    /**
+     * @param state The initial state.
+     */
     protected Machine(S state) {
         this.state = state;
     }
 
+    /**
+     * @return the current state.
+     */
     public S state() {
         return state;
     }
 
+    /**
+     * Stops the machine.
+     */
     public void stop() {
         isRunning = false;
     }
 
+    /**
+     * Starts the machine.
+     *
+     * Applies completed actions queued in the initial state.
+     *
+     * @param client The receiver object to be passed to actions.
+     */
     public void start(C client) {
         isRunning = true;
         for (Iterator<Future<A>> it = state.iterator(); it.hasNext();) {
@@ -188,6 +222,17 @@ implements ErrorHandler<C> {
         }
     }
 
+    /**
+     * Waits for currently running actions to complete, starts the machine and
+     * applies them.
+     *
+     * @param worker This must NOT be an immediate executor.
+     * @param client The receiver object to be passed to actions.
+     * @param action The action do when all running actions are completed. A
+     *               no-op action is fine ({@code (state, action) -> state}),
+     *               unfortunately that cannot be instantiated here because of
+     *               the recursive type parameters so you have to pass one.
+     */
     public void start(final Executor worker, C client, final A action) {
         start(client);
         final WeakReference<C> clientRef = new WeakReference<>(client);
@@ -204,10 +249,27 @@ implements ErrorHandler<C> {
         });
     }
 
+    /**
+     * Runs the action with the current state and the receiver presumably in the
+     * main thread.
+     *
+     * The "main thread" and how it is accessed differs by platform so the
+     * implementer must implement {@link #main(Runnable)}.
+     *
+     * @param worker The context to run async actions in.
+     * @param client The receiver object to be passed to the action. This will
+     *               be wrapped in a weak reference to prevent leakage by long-
+     *               running actions.
+     * @param action The action to run. The return value will become the new
+     *               state of the machine.
+     */
     public void apply(Executor worker, C client, A action) {
         apply(worker, new WeakReference<>(client), action);
     }
 
+    /**
+     * @see #apply(Executor, Object, Sm.Action)
+     */
     protected void apply(
             final Executor worker,
             final WeakReference<C> clientRef,
@@ -220,13 +282,11 @@ implements ErrorHandler<C> {
                     return;
                 }
                 state = action.fold(state, clientRef.get());
-                final Backlog work = state.backlog();
                 List<Future<A>> generation = new ArrayList<>();
-                synchronized (state) {
-                    for (Iterator<Future<A>> it = state.iterator(); it.hasNext(); it.remove()) {
-                        generation.add(it.next());
-                    }
+                for (Iterator<Future<A>> it = state.iterator(); it.hasNext(); it.remove()) {
+                    generation.add(it.next());
                 }
+                final Backlog work = state.backlog();
                 for (final Future<A> futureAction : generation) {
                     work.started();
                     worker.execute(new Runnable() {
@@ -250,7 +310,29 @@ implements ErrorHandler<C> {
         });
     }
 
-    protected void main(Runnable block) {
-        block.run();
-    }
+    /**
+     * Executes the action in the main thread of the platform.
+     *
+     * To preserve the invariants, all state manipulation must be done in the
+     * same thread. For GUI platforms, there's usually a single thread dedicated
+     * to UI manipulation and a way to execute blocks of code in that thread.
+     * You'll probably want to do UI updates in your actions so the {@code main}
+     * implementation should call the block in the UI thread.
+     *
+     * For others, you'd need a dedicated single thread executor for the machine
+     * and run {@code block} in that context. Simply calling {@code block.run()}
+     * here would only work if none of the actions are async or the executor
+     * passed to {@link #apply(Executor, Object, Sm.Action)} is {@code
+     * Runnable::run}. This means that the system is fully synchronous;
+     * everything runs on the same thread from start to finish, even actions
+     * added through {@link Sm.State#async(Future)}. For example, {@link
+     * Stepper} ignores the executor passed to {@code apply} and runs
+     * everything in the same thread as the caller, so its {@code main}
+     * implementation simply calls {@code block.run()}. It is meant to be used
+     * in tests so it is fair to assume that all {@code apply} calls will be in
+     * the same thread.
+     *
+     * @param block Runnable wrapping an action
+     */
+    abstract protected void main(Runnable block);
 }
