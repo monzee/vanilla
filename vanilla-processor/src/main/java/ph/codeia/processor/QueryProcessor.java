@@ -11,15 +11,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.function.Consumer;
 
 import javax.annotation.processing.AbstractProcessor;
+import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.Modifier;
-import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.ArrayType;
@@ -37,6 +36,8 @@ import ph.codeia.meta.Query;
 import ph.codeia.meta.Query.Order;
 import ph.codeia.meta.Query.Select;
 import ph.codeia.meta.Query.Where;
+import ph.codeia.values.Do;
+import ph.codeia.values.Lazy;
 
 @AutoService(Processor.class)
 public class QueryProcessor extends AbstractProcessor {
@@ -47,7 +48,7 @@ public class QueryProcessor extends AbstractProcessor {
 
     enum Error {
         INVALID_TYPE, FINAL_FIELD, INVISIBLE_FIELD,
-        COLUMNLESS_SORT, COLUMNLESS_PREDICATE,
+        INVISIBLE_ROOT, COLUMNLESS_SORT, COLUMNLESS_PREDICATE,
         SORT_EXCLUSION, NULL_EXCLUSION, COMP_EXCLUSION,
     }
 
@@ -57,15 +58,12 @@ public class QueryProcessor extends AbstractProcessor {
         Elements elements;
         Types types;
 
-        private TypeMirror stringType;
+        private final Lazy<TypeMirror> stringType = Lazy.of(() -> elements
+                .getTypeElement("java.lang.String")
+                .asType());
 
         boolean isString(TypeMirror type) {
-            if (stringType == null) {
-                stringType = elements
-                        .getTypeElement(String.class.getCanonicalName())
-                        .asType();
-            }
-            return types.isAssignable(stringType, type);
+            return types.isAssignable(stringType.get(), type);
         }
     }
 
@@ -73,8 +71,7 @@ public class QueryProcessor extends AbstractProcessor {
         String dataset;
         List<ColumnMap> columns = new ArrayList<>();
         Set<SortBy> sortCriteria = new TreeSet<>();
-        List<WhereMap> filters = new ArrayList<>();
-        List<Binding> vars = new ArrayList<>();
+        List<Predicate> filters = new ArrayList<>();
 
         @Override
         public String toString() {
@@ -123,34 +120,36 @@ public class QueryProcessor extends AbstractProcessor {
         }
     }
 
-    static class WhereMap {
-        final CharSequence field;
-        final String clause;
+    static class Predicate {
+        final String comparator;
+        final String column;
+        final Operand other;
 
-        WhereMap(CharSequence field, String clause) {
-            this.field = field;
-            this.clause = clause;
+        Predicate(String comparator, String column, Operand other) {
+            this.comparator = comparator;
+            this.column = column;
+            this.other = other;
         }
 
         @Override
         public String toString() {
-            return "{" + field + ":" + clause + "}";
+            return "{" + column + ": " + comparator + " ???}";
         }
     }
 
-    interface Binding {
+    interface Operand {
         void match(Case of);
+
         interface Case {
-            void string(String constant);
-            void field(VariableElement element);
-            void other(String literal);
+            void field(VariableElement elem);
+            void literal(String literal);
         }
     }
 
     private final Machine.Bound<State, Action, QueryProcessor> processor = new Machine.Bound<>(
             Machine.IMMEDIATE,
             this,
-            new Machine<State, Action, QueryProcessor>(new State()) {
+            new Machine<State, Action, QueryProcessor>(null) {
                 { isRunning = true; }
 
                 @Override
@@ -158,6 +157,11 @@ public class QueryProcessor extends AbstractProcessor {
                     client.err("[runtime] uh oh.");
                     assert error instanceof RuntimeException;
                     throw (RuntimeException) error;
+                }
+
+                @Override
+                protected void main(Runnable block) {
+                    block.run();
                 }
             });
 
@@ -195,13 +199,12 @@ public class QueryProcessor extends AbstractProcessor {
 
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-        processor.apply(init());
+        processor.apply(start(processingEnv));
         processor.apply(processQueryRoots(roundEnv.getElementsAnnotatedWith(Query.class)));
         if (processor.machine.state().errors > 0) {
             return false;
         }
-        processor.apply(generateCode());
-        processor.apply(clear());
+        processor.apply(new QueryCodeGen("/tmp"));
         return processor.machine.state().errors == 0;
     }
 
@@ -221,18 +224,23 @@ public class QueryProcessor extends AbstractProcessor {
         processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, message, elem);
     }
 
-    static <T> boolean forSome(T nullable, Consumer<T> fun) {
+    static <T> boolean forSome(T nullable, Do.Just<T> fun) {
         if (nullable != null) {
-            fun.accept(nullable);
+            fun.got(nullable);
             return true;
         }
         return false;
     }
 
-    static Action init() {
-        return (s, p) -> {
-            s.elements = p.processingEnv.getElementUtils();
-            s.types = p.processingEnv.getTypeUtils();
+    static String quote(String identifier) {
+        return "\"" + identifier.replace("\"", "\"\"") + "\"";
+    }
+
+    static Action start(ProcessingEnvironment env) {
+        return (_s, p) -> {
+            State s = new State();
+            s.elements = env.getElementUtils();
+            s.types = env.getTypeUtils();
             return s;
         };
     }
@@ -240,12 +248,17 @@ public class QueryProcessor extends AbstractProcessor {
     static Action processQueryRoots(Set<? extends Element> elements) {
         return (s, p) -> {
             for (Element e : elements) {
-                TypeElement key = MoreElements.asType(e);
+                TypeElement root = MoreElements.asType(e);
+                Set<Modifier> mods = root.getModifiers();
+                if (mods.contains(Modifier.PRIVATE)) {
+                    s.plus(fail(Error.INVISIBLE_ROOT, root));
+                    continue;
+                }
                 QueryModel query = new QueryModel();
-                s.model.put(key, query);
+                s.model.put(root, query);
                 query.dataset = e.getAnnotation(Query.class).value();
                 for (VariableElement field :
-                        ElementFilter.fieldsIn(s.elements.getAllMembers(key))) {
+                        ElementFilter.fieldsIn(s.elements.getAllMembers(root))) {
                     if (MoreElements.isAnnotationPresent(field, Select.class)) {
                         s.plus(processProjection(query, field));
                     } else if (MoreElements.isAnnotationPresent(field, Order.class)
@@ -264,15 +277,15 @@ public class QueryProcessor extends AbstractProcessor {
     }
 
     static Action processProjection(QueryModel query, VariableElement field) {
+        Set<Modifier> mods = field.getModifiers();
+        if (mods.contains(Modifier.FINAL)) {
+            return fail(Error.FINAL_FIELD, field);
+        }
+        if (mods.contains(Modifier.PRIVATE)) {
+            return fail(Error.INVISIBLE_FIELD, field);
+        }
         return (s, p) -> {
-            Set<Modifier> mods = field.getModifiers();
-            if (mods.contains(Modifier.FINAL)) {
-                return s.plus(fail(Error.FINAL_FIELD, field));
-            }
-            if (mods.contains(Modifier.PRIVATE) || mods.contains(Modifier.PROTECTED)) {
-                return s.plus(fail(Error.INVISIBLE_FIELD, field));
-            }
-            String colName = field.getAnnotation(Select.class).value();
+            String colName = quote(field.getAnnotation(Select.class).value());
             CharSequence fieldName = field.getSimpleName();
             TypeMirror type = field.asType();
             final ColumnMap colMap;
@@ -316,12 +329,12 @@ public class QueryProcessor extends AbstractProcessor {
             });
 
             boolean isNull = forSome(field.getAnnotation(Where.Null.class), ann -> query
-                    .filters.add(new WhereMap(colName, " is NULL")));
+                    .filters.add(new Predicate(" is ", colName, of -> of.literal("NULL"))));
             forSome(field.getAnnotation(Where.NotNull.class), ann -> {
                 if (isNull) {
                     s.plus(fail(Error.NULL_EXCLUSION, field));
                 } else {
-                    query.filters.add(new WhereMap(colName, " is not NULL"));
+                    query.filters.add(new Predicate(" is not ", colName, of -> of.literal("NULL")));
                 }
             });
             // TODO: e.g. if @Where.Eq is also present, add a COL1 = COL2 filter
@@ -330,49 +343,36 @@ public class QueryProcessor extends AbstractProcessor {
     }
 
     static Action processFilters(QueryModel query, VariableElement field) {
-        List<WhereMap> filters = query.filters;
-        Name name = field.getSimpleName();
+        List<Predicate> filters = query.filters;
+        Operand rval = of -> of.field(field);
+        //noinspection StatementWithEmptyBody
         if (forSome(field.getAnnotation(Where.Eq.class), ann -> {
-            filters.add(new WhereMap(name, ann.value() + " = ?"));
+            filters.add(new Predicate("=", quote(ann.value()), rval));
         }) || forSome(field.getAnnotation(Where.NotEq.class), ann -> {
-            filters.add(new WhereMap(name, ann.value() + " <> ?"));
+            filters.add(new Predicate("<>", quote(ann.value()), rval));
         }) || forSome(field.getAnnotation(Where.Lt.class), ann -> {
-            filters.add(new WhereMap(name, ann.value() + " < ?"));
+            filters.add(new Predicate("<", quote(ann.value()), rval));
         }) || forSome(field.getAnnotation(Where.Lte.class), ann -> {
-            filters.add(new WhereMap(name, ann.value() + " <= ?"));
+            filters.add(new Predicate("<=", quote(ann.value()), rval));
         }) || forSome(field.getAnnotation(Where.Gt.class), ann -> {
-            filters.add(new WhereMap(name, ann.value() + " > ?"));
+            filters.add(new Predicate(">", quote(ann.value()), rval));
         }) || forSome(field.getAnnotation(Where.Gte.class), ann -> {
-            filters.add(new WhereMap(name, ann.value() + " >= ?"));
+            filters.add(new Predicate(">=", quote(ann.value()), rval));
         }) || forSome(field.getAnnotation(Where.Like.class), ann -> {
-            filters.add(new WhereMap(name, ann.value() + " like ?"));
+            filters.add(new Predicate("like", quote(ann.value()), rval));
         }) || forSome(field.getAnnotation(Where.NotLike.class), ann -> {
-            filters.add(new WhereMap(name, ann.value() + " not like ?"));
-        })) {
-            query.vars.add(of -> of.field(field));
-        }
+            filters.add(new Predicate("not like", quote(ann.value()), rval));
+        }));
         // TODO: @In, @NotIn
         return (s, p) -> s;
-    }
-
-    static Action generateCode() {
-        return (s, p) -> {
-            for (TypeElement root : s.model.keySet()) {
-                for (QueryModel m : s.model.values()) {
-                    p.log("#generateCode:" + root.getQualifiedName() + m, root);
-                }
-            }
-            return s;
-        };
-    }
-
-    static Action clear() {
-        return (_s, p) -> new State();
     }
 
     static Action fail(Error error, Element elem) {
         final String message;
         switch (error) {
+            case INVISIBLE_ROOT:
+                message = "[root-invisible] must be package visible";
+                break;
             case INVALID_TYPE:
                 message = "[column-type] must be one of int, short, long, float, String or byte[]";
                 break;

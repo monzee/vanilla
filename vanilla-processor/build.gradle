@@ -17,8 +17,7 @@ dependencies {
 }
 
 // make android studio test runner find the test resources
-task copyTestResources(type: Copy) {
+processTestResources.dependsOn task('copyTestResources', type: Copy) {
     from sourceSets.test.resources
     into sourceSets.test.output.classesDir
 }
-processTestResources.dependsOn copyTestResources

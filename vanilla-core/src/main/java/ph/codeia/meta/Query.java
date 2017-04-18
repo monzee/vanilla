@@ -200,12 +200,23 @@ public @interface Query {
          */
         @Target(ElementType.FIELD)
         @Retention(RetentionPolicy.SOURCE)
+        @Inherited
         @interface Descending {
             /**
              * @return sort priority
              */
             int value() default -1;
         }
+    }
+
+    /**
+     * generated in round 1, meant to be consumed by round 2 processors.
+     * end users shouldn't use this.
+     */
+    @Target(ElementType.FIELD)
+    @Retention(RetentionPolicy.SOURCE)
+    @interface GeneratedFor {
+        Class value();
     }
 
     interface Template<T extends Template<T>> {
@@ -248,11 +259,11 @@ public @interface Query {
     //      .from(new BlogPostByAuthor(123))
     //      .query(new AndroidContent(getContentResolver(), contentUri));
 
-    class BlogPostByAuthor_GeneratedQuery {
+    class BlogPostByAuthorQuery {
         private final BlogPostByAuthor receiver;
         private static final int ARGC = 1;
 
-        public BlogPostByAuthor_GeneratedQuery(BlogPostByAuthor receiver) {
+        public BlogPostByAuthorQuery(BlogPostByAuthor receiver) {
             this.receiver = receiver;
         }
 

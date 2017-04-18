@@ -4,7 +4,7 @@ import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 
 import ph.codeia.meta.Query;
-import ph.codeia.query.Expr;
+import ph.codeia.query.Template;
 
 public class QueryTestActivity extends AppCompatActivity {
 
@@ -14,9 +14,12 @@ public class QueryTestActivity extends AppCompatActivity {
     }
 
     @Query("POSTS")
-    static class PostById {
+    static class PostById implements Template<PostById> {
         @Query.Where.Eq("_ID")
         final int id;
+
+        @Query.Where.Eq("category")
+        final String category = "uncategorized";
 
         @Query.Select("body")
         String body;
@@ -34,21 +37,10 @@ public class QueryTestActivity extends AppCompatActivity {
         PostById(int id) {
             this.id = id;
         }
-    }
 
-    static class MetaPostById {
-        PostById container;
-        final String source = "POSTS";
-        final Expr projection = of -> of.enumeration(
-                a -> a.identifier("body"),
-                b -> b.identifier("title"),
-                c -> c.identifier("banner"),
-                d -> d.identifier("created_on"));
-        final Expr filter = of -> of.enumeration(
-                a -> a.conjunction(" = ", b -> b.identifier("_ID"), c -> c.value(container.id))
-        );
-        final Expr order = of -> of.enumeration(
-                a -> a.association("desc", b -> b.identifier("created_on"))
-        );
+        @Override
+        public PostById copy() {
+            return new PostById(id);
+        }
     }
 }
