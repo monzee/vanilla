@@ -169,7 +169,7 @@ public @interface Query {
         /**
          * generates {@code '(AND) COL is NULL'} for every value
          */
-        @Target(ElementType.TYPE)
+        @Target(ElementType.FIELD)
         @Retention(RetentionPolicy.SOURCE)
         @Inherited
         @interface Null {}
@@ -177,7 +177,7 @@ public @interface Query {
         /**
          * generates {@code '(AND) COL is not NULL'} for every value
          */
-        @Target(ElementType.TYPE)
+        @Target(ElementType.FIELD)
         @Retention(RetentionPolicy.SOURCE)
         @Inherited
         @interface NotNull {}
@@ -191,7 +191,7 @@ public @interface Query {
     @Inherited
     @interface Order {
         /**
-         * @return sort priority
+         * @return sort priority; higher comes first
          */
         int value() default -1;
 
@@ -203,20 +203,10 @@ public @interface Query {
         @Inherited
         @interface Descending {
             /**
-             * @return sort priority
+             * @return sort priority; higher comes first
              */
             int value() default -1;
         }
-    }
-
-    /**
-     * generated in round 1, meant to be consumed by round 2 processors.
-     * end users shouldn't use this.
-     */
-    @Target(ElementType.FIELD)
-    @Retention(RetentionPolicy.SOURCE)
-    @interface GeneratedFor {
-        Class value();
     }
 
     interface Template<T extends Template<T>> {

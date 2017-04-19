@@ -2,8 +2,6 @@ package ph.codeia.sacdemo;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
-import android.content.ContentResolver;
-import android.database.Cursor;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -23,11 +21,15 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import ph.codeia.androidutils.AndroidContent;
 import ph.codeia.androidutils.AndroidMachine;
 import ph.codeia.androidutils.AndroidPermit;
 import ph.codeia.arch.sm.Machine;
 import ph.codeia.arch.sm.RootState;
 import ph.codeia.arch.sm.Sm;
+import ph.codeia.meta.Query;
+import ph.codeia.query.GenerateQuery;
+import ph.codeia.query.Results;
 
 import static android.Manifest.permission.READ_CONTACTS;
 
@@ -35,6 +37,21 @@ import static android.Manifest.permission.READ_CONTACTS;
  * A login screen that offers login via email/password.
  */
 public class LoginActivity extends AppCompatActivity {
+
+    @Query(ContactsContract.Contacts.Data.CONTENT_DIRECTORY)
+    public static class ProfileEmail {
+        static final Uri URI = ContactsContract.Profile.CONTENT_URI;
+
+        @Query.Where.Eq(ContactsContract.Contacts.Data.MIMETYPE)
+        final String type = ContactsContract.CommonDataKinds.Email.CONTENT_ITEM_TYPE;
+
+        @Query.Select(ContactsContract.CommonDataKinds.Email.ADDRESS)
+        String email;
+
+        @Query.Select(ContactsContract.CommonDataKinds.Email.IS_PRIMARY)
+        @Query.Order.Descending
+        int isPrimary;
+    }
 
     static class State extends RootState<State, Action> {
         enum Contacts { UNKNOWN, LOADING, LOADED, }
@@ -66,36 +83,24 @@ public class LoginActivity extends AppCompatActivity {
         Action START_LOADING = (m, v) -> {
             m.contacts = State.Contacts.LOADING;
             v.log("loading");
-            ContentResolver resolver = v.getContentResolver();
+            AndroidContent content = new AndroidContent(v.getContentResolver(), ProfileEmail.URI);
             return m.async(() -> {
-                Cursor cursor = resolver.query(
-                        // Retrieve data rows for the device user's 'profile' contact.
-                        Uri.withAppendedPath(ContactsContract.Profile.CONTENT_URI,
-                                ContactsContract.Contacts.Data.CONTENT_DIRECTORY),
-                        ProfileQuery.PROJECTION,
-
-                        // Select only email addresses.
-                        ContactsContract.Contacts.Data.MIMETYPE + " = ?",
-                        new String[] { ContactsContract.CommonDataKinds.Email.CONTENT_ITEM_TYPE },
-
-                        // Show primary email addresses first. Note that there won't be
-                        // a primary email address if the user hasn't specified one.
-                        ContactsContract.Contacts.Data.IS_PRIMARY + " DESC");
-
+                Results<ProfileEmail> results = GenerateQuery.from(new ProfileEmail())
+                        .query(content);
                 return (futureM, futureV) -> {
-                    if (cursor == null) {
+                    if (!results.ok()) {
                         futureM.contacts = State.Contacts.UNKNOWN;
                         futureV.log("got a null cursor");
                         return futureM;
                     }
-                    futureV.log("got rows: %d", cursor.getCount());
+                    futureV.log("got %d emails", results.count());
                     List<String> emails = new ArrayList<>();
-                    for (cursor.moveToFirst(); !cursor.isAfterLast(); cursor.moveToNext()) {
-                        emails.add(cursor.getString(ProfileQuery.ADDRESS));
+                    for (ProfileEmail profile : results) {
+                        emails.add(profile.email);
                     }
                     futureM.emails = emails;
                     futureM.contacts = State.Contacts.LOADED;
-                    cursor.close();
+                    results.dispose();
                     return futureM.plus(LOAD_CONTACTS);
                 };
             });
@@ -177,16 +182,6 @@ public class LoginActivity extends AppCompatActivity {
             }
         };
 
-    }
-
-    private interface ProfileQuery {
-        String[] PROJECTION = {
-                ContactsContract.CommonDataKinds.Email.ADDRESS,
-                ContactsContract.CommonDataKinds.Email.IS_PRIMARY,
-        };
-
-        int ADDRESS = 0;
-        int IS_PRIMARY = 1;
     }
 
     /**
@@ -340,22 +335,22 @@ public class LoginActivity extends AppCompatActivity {
         int shortAnimTime = getResources().getInteger(android.R.integer.config_longAnimTime);
 
         mLoginFormView.setVisibility(show ? View.GONE : View.VISIBLE);
-        mLoginFormView.animate().setDuration(shortAnimTime).alpha(
-                show ? 0 : 1).setListener(new AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationEnd(Animator animation) {
-                mLoginFormView.setVisibility(show ? View.GONE : View.VISIBLE);
-            }
-        });
+        mLoginFormView.animate().setDuration(shortAnimTime).alpha(show ? 0 : 1)
+                .setListener(new AnimatorListenerAdapter() {
+                    @Override
+                    public void onAnimationEnd(Animator animation) {
+                        mLoginFormView.setVisibility(show ? View.GONE : View.VISIBLE);
+                    }
+                });
 
         mProgressView.setVisibility(show ? View.VISIBLE : View.GONE);
-        mProgressView.animate().setDuration(shortAnimTime).alpha(
-                show ? 1 : 0).setListener(new AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationEnd(Animator animation) {
-                mProgressView.setVisibility(show ? View.VISIBLE : View.GONE);
-            }
-        });
+        mProgressView.animate().setDuration(shortAnimTime).alpha(show ? 1 : 0)
+                .setListener(new AnimatorListenerAdapter() {
+                    @Override
+                    public void onAnimationEnd(Animator animation) {
+                        mProgressView.setVisibility(show ? View.VISIBLE : View.GONE);
+                    }
+                });
     }
 
     private void addEmailsToAutoComplete(List<String> emailAddressCollection) {

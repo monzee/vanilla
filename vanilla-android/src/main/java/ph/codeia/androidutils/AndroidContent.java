@@ -7,13 +7,12 @@ import android.net.Uri;
 import java.util.Iterator;
 
 import ph.codeia.query.Results;
-import ph.codeia.values.Do;
 
 /**
  * This file is a part of the vanilla project.
  */
 
-public class AndroidContent<T> {
+public class AndroidContent {
 
     private final ContentResolver resolver;
     private final Uri baseUri;
@@ -23,7 +22,7 @@ public class AndroidContent<T> {
         this.baseUri = baseUri;
     }
 
-    public Results<T> execute(
+    public <T> Results<T> get(
             String path,
             String[] projection,
             String selection,
@@ -31,15 +30,22 @@ public class AndroidContent<T> {
             String ordering,
             final Results.Mapper<T> factory) {
         final Cursor cursor = resolver.query(
-                Uri.withAppendedPath(baseUri, path),
+                path != null && !path.isEmpty()
+                        ? Uri.withAppendedPath(baseUri, path)
+                        : baseUri,
                 projection,
                 selection,
                 args,
                 ordering);
         return new Results<T>() {
             @Override
-            public boolean isEmpty() {
-                return cursor == null || cursor.getCount() == 0;
+            public boolean ok() {
+                return cursor != null;
+            }
+
+            @Override
+            public int count() {
+                return cursor == null ? 0 : cursor.getCount();
             }
 
             @Override
@@ -88,6 +94,11 @@ public class AndroidContent<T> {
                         }
 
                         @Override
+                        public double getDouble(int column) {
+                            return cursor.getDouble(column);
+                        }
+
+                        @Override
                         public String getString(int column) {
                             return cursor.getString(column);
                         }
@@ -100,7 +111,7 @@ public class AndroidContent<T> {
 
                     @Override
                     public boolean hasNext() {
-                        return cursor.isAfterLast();
+                        return !cursor.isAfterLast();
                     }
 
                     @Override

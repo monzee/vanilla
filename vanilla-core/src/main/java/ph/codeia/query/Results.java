@@ -6,7 +6,8 @@ package ph.codeia.query;
 
 public interface Results<T> extends Iterable<T> {
 
-    boolean isEmpty();
+    boolean ok();
+    int count();
     void dispose();
 
     interface Row {
@@ -14,6 +15,7 @@ public interface Results<T> extends Iterable<T> {
         long getLong(int column);
         short getShort(int column);
         float getFloat(int column);
+        double getDouble(int column);
         String getString(int column);
         byte[] getBlob(int column);
     }

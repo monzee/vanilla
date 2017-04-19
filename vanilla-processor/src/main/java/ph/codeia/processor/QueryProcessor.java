@@ -36,15 +36,17 @@ import ph.codeia.meta.Query;
 import ph.codeia.meta.Query.Order;
 import ph.codeia.meta.Query.Select;
 import ph.codeia.meta.Query.Where;
-import ph.codeia.values.Do;
 import ph.codeia.values.Lazy;
+
+import static ph.codeia.processor.Util.forSome;
+import static ph.codeia.processor.Util.quote;
 
 @AutoService(Processor.class)
 public class QueryProcessor extends AbstractProcessor {
 
     interface Action extends Sm.Action<State, Action, QueryProcessor> {}
 
-    enum ColumnType { INT, SHORT, LONG, FLOAT, STRING, BLOB, }
+    enum ColumnType { INT, SHORT, LONG, FLOAT, DOUBLE, STRING, BLOB, }
 
     enum Error {
         INVALID_TYPE, FINAL_FIELD, INVISIBLE_FIELD,
@@ -63,7 +65,7 @@ public class QueryProcessor extends AbstractProcessor {
                 .asType());
 
         boolean isString(TypeMirror type) {
-            return types.isAssignable(stringType.get(), type);
+            return types.isSubtype(type, stringType.get());
         }
     }
 
@@ -71,7 +73,7 @@ public class QueryProcessor extends AbstractProcessor {
         String dataset;
         List<ColumnMap> columns = new ArrayList<>();
         Set<SortBy> sortCriteria = new TreeSet<>();
-        List<Predicate> filters = new ArrayList<>();
+        List<Filter> filters = new ArrayList<>();
 
         @Override
         public String toString() {
@@ -111,7 +113,7 @@ public class QueryProcessor extends AbstractProcessor {
 
         @Override
         public int compareTo(SortBy that) {
-            return priority - that.priority;
+            return that.priority - priority;  // reverse order
         }
 
         @Override
@@ -120,12 +122,12 @@ public class QueryProcessor extends AbstractProcessor {
         }
     }
 
-    static class Predicate {
+    static class Filter {
         final String comparator;
         final String column;
         final Operand other;
 
-        Predicate(String comparator, String column, Operand other) {
+        Filter(String comparator, String column, Operand other) {
             this.comparator = comparator;
             this.column = column;
             this.other = other;
@@ -204,7 +206,7 @@ public class QueryProcessor extends AbstractProcessor {
         if (processor.machine.state().errors > 0) {
             return false;
         }
-        processor.apply(new QueryCodeGen("/tmp"));
+        processor.apply(new QueryCodeGen(processingEnv.getFiler()));
         return processor.machine.state().errors == 0;
     }
 
@@ -224,18 +226,6 @@ public class QueryProcessor extends AbstractProcessor {
         processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, message, elem);
     }
 
-    static <T> boolean forSome(T nullable, Do.Just<T> fun) {
-        if (nullable != null) {
-            fun.got(nullable);
-            return true;
-        }
-        return false;
-    }
-
-    static String quote(String identifier) {
-        return "\"" + identifier.replace("\"", "\"\"") + "\"";
-    }
-
     static Action start(ProcessingEnvironment env) {
         return (_s, p) -> {
             State s = new State();
@@ -250,7 +240,7 @@ public class QueryProcessor extends AbstractProcessor {
             for (Element e : elements) {
                 TypeElement root = MoreElements.asType(e);
                 Set<Modifier> mods = root.getModifiers();
-                if (mods.contains(Modifier.PRIVATE)) {
+                if (!mods.contains(Modifier.PUBLIC)) {
                     s.plus(fail(Error.INVISIBLE_ROOT, root));
                     continue;
                 }
@@ -285,7 +275,7 @@ public class QueryProcessor extends AbstractProcessor {
             return fail(Error.INVISIBLE_FIELD, field);
         }
         return (s, p) -> {
-            String colName = quote(field.getAnnotation(Select.class).value());
+            String colName = field.getAnnotation(Select.class).value();
             CharSequence fieldName = field.getSimpleName();
             TypeMirror type = field.asType();
             final ColumnMap colMap;
@@ -302,6 +292,9 @@ public class QueryProcessor extends AbstractProcessor {
                 case FLOAT:
                     colMap = new ColumnMap(fieldName, colName, ColumnType.FLOAT);
                     break;
+                case DOUBLE:
+                    colMap = new ColumnMap(fieldName, colName, ColumnType.DOUBLE);
+                    break;
                 case ARRAY:
                     ArrayType colAsArray = MoreTypes.asArray(type);
                     if (colAsArray.getComponentType().getKind() == TypeKind.BYTE) {
@@ -316,25 +309,29 @@ public class QueryProcessor extends AbstractProcessor {
                 default:
                     return s.plus(fail(Error.INVALID_TYPE, field));
             }
-            query.columns.add(colMap);
+            if (findField(query.columns, fieldName) == null) {
+                query.columns.add(colMap);
+            }
 
             boolean sortedAlready = forSome(field.getAnnotation(Order.class), order -> query
-                    .sortCriteria.add(new SortBy(order.value(), colName)));
+                    .sortCriteria
+                    .add(new SortBy(order.value(), quote(colName))));
             forSome(field.getAnnotation(Order.Descending.class), desc -> {
                 if (sortedAlready) {
                     s.plus(fail(Error.SORT_EXCLUSION, field));
                 } else {
-                    query.sortCriteria.add(new SortBy(desc.value(), colName + " DESC"));
+                    query.sortCriteria.add(new SortBy(desc.value(), quote(colName) + " DESC"));
                 }
             });
 
-            boolean isNull = forSome(field.getAnnotation(Where.Null.class), ann -> query
-                    .filters.add(new Predicate(" is ", colName, of -> of.literal("NULL"))));
+            boolean nullCheckedAlready = forSome(field.getAnnotation(Where.Null.class), ann -> query
+                    .filters
+                    .add(new Filter("is", quote(colName), of -> of.literal("null"))));
             forSome(field.getAnnotation(Where.NotNull.class), ann -> {
-                if (isNull) {
+                if (nullCheckedAlready) {
                     s.plus(fail(Error.NULL_EXCLUSION, field));
                 } else {
-                    query.filters.add(new Predicate(" is not ", colName, of -> of.literal("NULL")));
+                    query.filters.add(new Filter("is not", quote(colName), of -> of.literal("null")));
                 }
             });
             // TODO: e.g. if @Where.Eq is also present, add a COL1 = COL2 filter
@@ -343,25 +340,25 @@ public class QueryProcessor extends AbstractProcessor {
     }
 
     static Action processFilters(QueryModel query, VariableElement field) {
-        List<Predicate> filters = query.filters;
+        List<Filter> filters = query.filters;
         Operand rval = of -> of.field(field);
         //noinspection StatementWithEmptyBody
         if (forSome(field.getAnnotation(Where.Eq.class), ann -> {
-            filters.add(new Predicate("=", quote(ann.value()), rval));
+            filters.add(new Filter("=", quote(ann.value()), rval));
         }) || forSome(field.getAnnotation(Where.NotEq.class), ann -> {
-            filters.add(new Predicate("<>", quote(ann.value()), rval));
+            filters.add(new Filter("<>", quote(ann.value()), rval));
         }) || forSome(field.getAnnotation(Where.Lt.class), ann -> {
-            filters.add(new Predicate("<", quote(ann.value()), rval));
+            filters.add(new Filter("<", quote(ann.value()), rval));
         }) || forSome(field.getAnnotation(Where.Lte.class), ann -> {
-            filters.add(new Predicate("<=", quote(ann.value()), rval));
+            filters.add(new Filter("<=", quote(ann.value()), rval));
         }) || forSome(field.getAnnotation(Where.Gt.class), ann -> {
-            filters.add(new Predicate(">", quote(ann.value()), rval));
+            filters.add(new Filter(">", quote(ann.value()), rval));
         }) || forSome(field.getAnnotation(Where.Gte.class), ann -> {
-            filters.add(new Predicate(">=", quote(ann.value()), rval));
+            filters.add(new Filter(">=", quote(ann.value()), rval));
         }) || forSome(field.getAnnotation(Where.Like.class), ann -> {
-            filters.add(new Predicate("like", quote(ann.value()), rval));
+            filters.add(new Filter("like", quote(ann.value()), rval));
         }) || forSome(field.getAnnotation(Where.NotLike.class), ann -> {
-            filters.add(new Predicate("not like", quote(ann.value()), rval));
+            filters.add(new Filter("not like", quote(ann.value()), rval));
         }));
         // TODO: @In, @NotIn
         return (s, p) -> s;
@@ -371,7 +368,7 @@ public class QueryProcessor extends AbstractProcessor {
         final String message;
         switch (error) {
             case INVISIBLE_ROOT:
-                message = "[root-invisible] must be package visible";
+                message = "[root-invisible] must be public";
                 break;
             case INVALID_TYPE:
                 message = "[column-type] must be one of int, short, long, float, String or byte[]";
@@ -407,4 +404,14 @@ public class QueryProcessor extends AbstractProcessor {
             return s;
         };
     }
+
+    private static ColumnMap findField(List<ColumnMap> columnMaps, CharSequence fieldName) {
+        for (ColumnMap c : columnMaps) {
+            if (c.field.equals(fieldName)) {
+                return c;
+            }
+        }
+        return null;
+    }
+
 }
