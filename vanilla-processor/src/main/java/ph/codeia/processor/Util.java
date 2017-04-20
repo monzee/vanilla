@@ -1,7 +1,13 @@
 package ph.codeia.processor;
 
+import com.google.auto.common.MoreElements;
+
 import java.text.SimpleDateFormat;
 import java.util.Locale;
+
+import javax.lang.model.element.NestingKind;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.util.Elements;
 
 import ph.codeia.values.Do;
 
@@ -29,6 +35,17 @@ public final class Util {
 
     static String quote(String identifier) {
         return "\"" + identifier.replace("\"", "\"\"") + "\"";
+    }
+
+    static String nameAfter(TypeElement queryType, String suffix) {
+        StringBuilder parts = new StringBuilder(suffix);
+        while (queryType.getNestingKind() != NestingKind.TOP_LEVEL) {
+            parts.insert(0, '$');
+            parts.insert(1, queryType.getSimpleName().toString());
+            queryType = MoreElements.asType(queryType.getEnclosingElement());
+        }
+        parts.insert(0, queryType.getSimpleName().toString());
+        return parts.toString();
     }
 
     private Util() {}

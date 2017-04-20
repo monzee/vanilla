@@ -10,18 +10,4 @@ public interface Results<T> extends Iterable<T> {
     int count();
     void dispose();
 
-    interface Row {
-        int getInt(int column);
-        long getLong(int column);
-        short getShort(int column);
-        float getFloat(int column);
-        double getDouble(int column);
-        String getString(int column);
-        byte[] getBlob(int column);
-    }
-
-    interface Mapper<T> {
-        T result(Row cursor);
-    }
-
 }

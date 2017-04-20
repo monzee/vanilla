@@ -28,8 +28,11 @@ import ph.codeia.arch.sm.Machine;
 import ph.codeia.arch.sm.RootState;
 import ph.codeia.arch.sm.Sm;
 import ph.codeia.meta.Query;
+import ph.codeia.meta.Query.Order;
+import ph.codeia.meta.Query.Select;
+import ph.codeia.meta.Query.Where;
 import ph.codeia.query.GenerateQuery;
-import ph.codeia.query.Results;
+import ph.codeia.query.Template;
 
 import static android.Manifest.permission.READ_CONTACTS;
 
@@ -39,26 +42,31 @@ import static android.Manifest.permission.READ_CONTACTS;
 public class LoginActivity extends AppCompatActivity {
 
     @Query(ContactsContract.Contacts.Data.CONTENT_DIRECTORY)
-    public static class ProfileEmail {
+    public static class ProfileEmail implements Template<ProfileEmail> {
         static final Uri URI = ContactsContract.Profile.CONTENT_URI;
 
-        @Query.Where.Eq(ContactsContract.Contacts.Data.MIMETYPE)
-        final String type = ContactsContract.CommonDataKinds.Email.CONTENT_ITEM_TYPE;
+        @Where.Eq(ContactsContract.Contacts.Data.MIMETYPE)
+        static final String TYPE = ContactsContract.CommonDataKinds.Email.CONTENT_ITEM_TYPE;
 
-        @Query.Select(ContactsContract.CommonDataKinds.Email.ADDRESS)
-        String email;
+        @Select(ContactsContract.CommonDataKinds.Email.ADDRESS)
+        String address;
 
-        @Query.Select(ContactsContract.CommonDataKinds.Email.IS_PRIMARY)
-        @Query.Order.Descending
+        @Select(ContactsContract.CommonDataKinds.Email.IS_PRIMARY)
+        @Order.Descending
         int isPrimary;
+
+        @Override
+        public ProfileEmail copy() {
+            return new ProfileEmail();
+        }
     }
 
     static class State extends RootState<State, Action> {
-        enum Contacts { UNKNOWN, LOADING, LOADED, }
+        enum Emails { UNKNOWN, LOADING, LOADED, }
         enum Login { UNKNOWN, LOGGING_IN, LOGGED_IN, FAILED, }
 
-        Contacts contacts = Contacts.UNKNOWN;
-        Login login = Login.UNKNOWN;
+        Emails emailState = Emails.UNKNOWN;
+        Login loginState = Login.UNKNOWN;
         List<String> emails = Collections.emptyList();
         int loginAttempts = 0;
     }
@@ -67,7 +75,7 @@ public class LoginActivity extends AppCompatActivity {
         Action NOOP = (m, v) -> m;
 
         Action LOAD_CONTACTS = (m, v) -> {
-            switch (m.contacts) {
+            switch (m.emailState) {
                 case UNKNOWN:
                     v.populateAutoComplete();
                     break;
@@ -81,33 +89,30 @@ public class LoginActivity extends AppCompatActivity {
         };
 
         Action START_LOADING = (m, v) -> {
-            m.contacts = State.Contacts.LOADING;
-            v.log("loading");
+            m.emailState = State.Emails.LOADING;
             AndroidContent content = new AndroidContent(v.getContentResolver(), ProfileEmail.URI);
             return m.async(() -> {
-                Results<ProfileEmail> results = GenerateQuery.from(new ProfileEmail())
-                        .query(content);
-                return (futureM, futureV) -> {
-                    if (!results.ok()) {
-                        futureM.contacts = State.Contacts.UNKNOWN;
-                        futureV.log("got a null cursor");
+                List<ProfileEmail> rows = new ArrayList<>();
+                if (GenerateQuery.from(new ProfileEmail()).drain(content, rows)) {
+                    return (futureM, futureV) -> {
+                        futureM.emails = new ArrayList<>();
+                        for (ProfileEmail email : rows) {
+                            futureM.emails.add(email.address);
+                        }
+                        futureM.emailState = State.Emails.LOADED;
+                        return futureM.plus(LOAD_CONTACTS);
+                    };
+                } else {
+                    return (futureM, futureV) -> {
+                        futureM.emailState = State.Emails.UNKNOWN;
                         return futureM;
-                    }
-                    futureV.log("got %d emails", results.count());
-                    List<String> emails = new ArrayList<>();
-                    for (ProfileEmail profile : results) {
-                        emails.add(profile.email);
-                    }
-                    futureM.emails = emails;
-                    futureM.contacts = State.Contacts.LOADED;
-                    results.dispose();
-                    return futureM.plus(LOAD_CONTACTS);
-                };
+                    };
+                }
             });
         };
 
         Action CONTINUE_LOGIN = (m, v) -> {
-            switch (m.login) {
+            switch (m.loginState) {
                 case UNKNOWN:
                     v.showProgress(false);
                     break;
@@ -116,7 +121,7 @@ public class LoginActivity extends AppCompatActivity {
                     break;
                 case LOGGED_IN:
                     // next screen?
-                    m.login = State.Login.UNKNOWN;
+                    m.loginState = State.Login.UNKNOWN;
                     v.showProgress(false);
                     v.finish();
                     break;
@@ -129,24 +134,9 @@ public class LoginActivity extends AppCompatActivity {
             return m;
         };
 
-        Action LOGIN_CANCELLED = (m, v) -> {
-            m.login = State.Login.UNKNOWN;
-            return m.plus(CONTINUE_LOGIN);
-        };
-
-        Action LOGIN_OK = (m, v) -> {
-            m.login = State.Login.LOGGED_IN;
-            return m.plus(CONTINUE_LOGIN);
-        };
-
-        Action LOGIN_FAILED = (m, v) -> {
-            m.login = State.Login.FAILED;
-            return m.plus(CONTINUE_LOGIN);
-        };
-
         Action TRY_LOGIN = (m, v) -> {
             m.loginAttempts++;
-            m.login = State.Login.LOGGING_IN;
+            m.loginState = State.Login.LOGGING_IN;
             String email = v.mEmailView.getText().toString();
             String password = v.mPasswordView.getText().toString();
             v.showProgress(true);
@@ -155,7 +145,10 @@ public class LoginActivity extends AppCompatActivity {
                     // Simulate network access.
                     Thread.sleep(2000);
                 } catch (InterruptedException e) {
-                    return LOGIN_CANCELLED;
+                    return (m1, v1) -> {
+                        m1.loginState = State.Login.UNKNOWN;
+                        return m1.plus(CONTINUE_LOGIN);
+                    };
                 }
 
                 for (String credential : DUMMY_CREDENTIALS) {
@@ -163,18 +156,24 @@ public class LoginActivity extends AppCompatActivity {
                     if (pieces[0].equals(email)) {
                         // Account exists, return true if the password matches.
                         if (pieces[1].equals(password)) {
-                            return LOGIN_OK;
+                            return (m1, v1) -> {
+                                m1.loginState = State.Login.LOGGED_IN;
+                                return m1.plus(CONTINUE_LOGIN);
+                            };
                         }
                         break;
                     }
                 }
 
-                return LOGIN_FAILED;
+                return (m1, v1) -> {
+                    m1.loginState = State.Login.FAILED;
+                    return m1.plus(CONTINUE_LOGIN);
+                };
             });
         };
 
         Action LOGIN_IF_VALID = (m, v) -> {
-            switch (m.login) {
+            switch (m.loginState) {
                 case LOGGING_IN:
                     return m;
                 default:
@@ -249,10 +248,6 @@ public class LoginActivity extends AppCompatActivity {
         return model;
     }
 
-    private void log(String message, Object... fmtArgs) {
-        Log.i("mz", String.format(message, fmtArgs));
-    }
-
     private void tell(@StringRes int message, Object... fmtArgs) {
         tell(getString(message, fmtArgs));
     }
@@ -266,7 +261,9 @@ public class LoginActivity extends AppCompatActivity {
         AndroidPermit.of(this)
                 .ask(READ_CONTACTS)
                 .before(appeal -> Snackbar
-                        .make(mEmailView, R.string.permission_rationale, Snackbar.LENGTH_INDEFINITE)
+                        .make(mEmailView,
+                                R.string.permission_rationale,
+                                Snackbar.LENGTH_INDEFINITE)
                         .setAction(android.R.string.ok, _v -> appeal.submit())
                         .show())
                 .granted(() -> machine.apply(Action.START_LOADING))

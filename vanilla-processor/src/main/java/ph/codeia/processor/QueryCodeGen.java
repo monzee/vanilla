@@ -1,6 +1,5 @@
 package ph.codeia.processor;
 
-import com.google.auto.common.MoreElements;
 import com.google.common.base.Predicate;
 import com.google.common.base.Strings;
 import com.squareup.javapoet.AnnotationSpec;
@@ -13,6 +12,7 @@ import com.squareup.javapoet.TypeSpec;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Set;
@@ -21,14 +21,14 @@ import javax.annotation.Generated;
 import javax.annotation.processing.Filer;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.Name;
-import javax.lang.model.element.NestingKind;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 
 import ph.codeia.meta.GeneratedFrom;
-import ph.codeia.query.Results;
+import ph.codeia.query.Params;
+import ph.codeia.query.Row;
 import ph.codeia.query.Template;
 
 /**
@@ -75,9 +75,9 @@ public class QueryCodeGen implements QueryProcessor.Action {
 
             TypeMirror rootType = root.asType();
             DeclaredType mapperType = state.types.getDeclaredType(
-                    state.elements.getTypeElement(Results.Mapper.class.getCanonicalName()),
+                    state.elements.getTypeElement(Row.Mapper.class.getCanonicalName()),
                     rootType);
-            TypeSpec.Builder queryClass = TypeSpec.classBuilder(nameAfter(root))
+            TypeSpec.Builder queryClass = TypeSpec.classBuilder(Util.nameAfter(root, "Query"))
                     .addJavadoc(Util.SIGNATURE)
                     .addAnnotation(AnnotationSpec.builder(Generated.class)
                             .addMember("value", "{$S}", QueryCodeGen.class.getCanonicalName())
@@ -87,6 +87,7 @@ public class QueryCodeGen implements QueryProcessor.Action {
                             .addMember("value", "$S", root.getQualifiedName())
                             .build())
                     .addSuperinterface(TypeName.get(mapperType))
+                    .addSuperinterface(Params.class)
                     .addModifiers(Modifier.PUBLIC);
 
             queryClass.addField(
@@ -102,6 +103,7 @@ public class QueryCodeGen implements QueryProcessor.Action {
 
             queryClass.addMethod(MethodSpec.methodBuilder("dataset")
                     .returns(String.class)
+                    .addAnnotation(Override.class)
                     .addModifiers(Modifier.PUBLIC)
                     .addStatement("return $S", m.dataset)
                     .build());
@@ -109,6 +111,7 @@ public class QueryCodeGen implements QueryProcessor.Action {
             Object[] columns = columnNames(m.columns);
             queryClass.addMethod(MethodSpec.methodBuilder("projection")
                     .returns(String[].class)
+                    .addAnnotation(Override.class)
                     .addModifiers(Modifier.PUBLIC)
                     .addStatement("return new String[] { "
                             + Strings.repeat("$S, ", columns.length)
@@ -120,6 +123,7 @@ public class QueryCodeGen implements QueryProcessor.Action {
             CharSequence where = buildFilters(m.filters, args, state::isString);
             queryClass.addMethod(MethodSpec.methodBuilder("selection")
                     .returns(String.class)
+                    .addAnnotation(Override.class)
                     .addModifiers(Modifier.PUBLIC)
                     .addStatement("return $L", where)
                     .build());
@@ -127,6 +131,7 @@ public class QueryCodeGen implements QueryProcessor.Action {
             Object[] bindings = args.toArray(new Object[0]);
             queryClass.addMethod(MethodSpec.methodBuilder("selectionArgs")
                     .returns(String[].class)
+                    .addAnnotation(Override.class)
                     .addModifiers(Modifier.PUBLIC)
                     .addStatement("return new String[] { "
                             + Strings.repeat("$L, ", bindings.length)
@@ -137,6 +142,7 @@ public class QueryCodeGen implements QueryProcessor.Action {
             String sortBy = sortCriteria(m.sortCriteria);
             queryClass.addMethod(MethodSpec.methodBuilder("sortOrder")
                     .returns(String.class)
+                    .addAnnotation(Override.class)
                     .addModifiers(Modifier.PUBLIC)
                     .addStatement("return $S", sortBy)
                     .build());
@@ -144,11 +150,11 @@ public class QueryCodeGen implements QueryProcessor.Action {
             DeclaredType templateType = state.types.getDeclaredType(
                     state.elements.getTypeElement(Template.class.getCanonicalName()),
                     rootType);
-            MethodSpec.Builder mapBody = MethodSpec.methodBuilder("result")
-                    .addAnnotation(Override.class)
+            MethodSpec.Builder mapBody = MethodSpec.methodBuilder("from")
                     .returns(TypeName.get(rootType))
+                    .addAnnotation(Override.class)
                     .addModifiers(Modifier.PUBLIC)
-                    .addParameter(Results.Row.class, "cursor")
+                    .addParameter(Row.class, "cursor")
                     .addStatement(
                             state.types.isSubtype(rootType, templateType)
                                     ? "$T row = receiver.copy()"
@@ -234,7 +240,7 @@ public class QueryCodeGen implements QueryProcessor.Action {
             Predicate<TypeMirror> isString) {
         StringBuilder where = new StringBuilder();
         for (QueryProcessor.Filter f : filters) {
-            where.append(CodeBlock.of(" AND $L $L ",
+            where.append(String.format(" AND %s %s ",
                     f.column.replaceAll("(\\\\|\")", "\\\\$1"),
                     f.comparator));
             f.other.match(new QueryProcessor.Operand.Case() {
@@ -283,14 +289,4 @@ public class QueryCodeGen implements QueryProcessor.Action {
         return names;
     }
 
-    static String nameAfter(TypeElement queryType) {
-        StringBuilder parts = new StringBuilder("Query");
-        while (queryType.getNestingKind() != NestingKind.TOP_LEVEL) {
-            parts.insert(0, '$');
-            parts.insert(1, queryType.getSimpleName().toString());
-            queryType = MoreElements.asType(queryType.getEnclosingElement());
-        }
-        parts.insert(0, queryType.getSimpleName().toString());
-        return parts.toString();
-    }
 }
