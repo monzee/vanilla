@@ -1,0 +1,133 @@
+Blackjack
+=========
+A game has participants.
+
+Participants must include at least a dealer and a player.
+
+Players place their initial bets.
+
+
+-- STARTING --
+
+Each player draws two cards each (face up).
+
+The dealer draws a card face up.
+
+The dealer draws the hole.
+
+The dealer checks for blackjack:
+- if blackjack:
+  - for each player:
+    - if blackjack, they get their initial bet back
+    - else, house takes their bet.
+  - game over.
+
+
+-- PLAYING --
+
+First turn:
+- for each player:
+  - prompt HIT, STAND, DOUBLEDOWN, SPLIT?, SURRENDER
+  HIT:
+    - player draws
+  STAND:
+    - flag player as STOOD
+  DOUBLEDOWN:
+    - player draws
+    - double player wager
+    - flag player as STOOD
+  SPLIT? [only if player cards have the same value]
+    - prompt NEWWAGER, CANCEL
+    NEWWAGER: -> n
+      - take last card from this player
+      - add new player to player list with wager n
+      - add taken card to new player hand
+    CANCEL:
+      - repeat from outer prompt
+  SURRENDER:
+    - flag player as SURRENDERED
+    - flag player as STOOD
+
+While not all players are flagged STOOD:
+- for each player:
+  - prompt HIT, STAND, DOUBLEDOWN
+  HIT:
+  STAND:
+  DOUBLEDOWN: same as above
+
+
+-- RESOLVING --
+
+While dealer score < 17 || score is soft 17:
+- dealer draws a card
+
+
+-- SCORING --
+
+for each player:
+- if player flagged as SURRENDERED:
+  - payout -half of wager
+- else get dealer score:
+BLACKJACK:
+  - get player score:
+  BLACKJACK:
+    - payout 0
+  ELSE:
+    - payout -wager
+ELSE:
+  - get player score:
+  BLACKJACK:
+    - payout 1.5x wager
+  ELSE [player score == dealer score]:
+    - payout 0
+  ELSE [player score > dealer score]:
+    - payout wager
+  ELSE:
+    - payout -wager
+
+
+
+idea inventory:
+
+shoe = card list * int
+card = suit * value
+suit = C | S | H | D
+value = Num of int | Face of face | Ace
+face = J | Q | K
+
+
+
+
+- player puts initial bet
+- if not playable shoe: shuffle shoe
+- deal two cards
+- deal card to house
+- deal card to house face down (hole)
+- if house got 21:
+  - can't Hit anymore
+  - can't Surrender anymore
+- while true
+  - play <- valid plays
+  - switch play:
+    - case Surrender:
+      - player loses, house takes half of bet
+      - break
+    - case Hit:
+      - deal card
+      - can't Surrender anymore
+    - case Stand:
+      - reveal hole card
+      - while dealer total < 17:
+        - deal card to house
+      - break
+    - case DoubleDown:
+      - bet is doubled
+      - deal card
+      - can't Hit anymore
+      - can't Surrender anymore
+- if player busts: player loses
+- if house busts: player wins, house pays out
+- if player total == house total: push, player gets back bet
+- if player total < house total: player loses
+
+
