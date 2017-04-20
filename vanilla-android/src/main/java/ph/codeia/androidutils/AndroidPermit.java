@@ -122,7 +122,7 @@ public class AndroidPermit implements Permit.Builder, Permission.Adapter {
     }
 
     /**
-     * Stores permit sets that may be submitted at anytime by a client.
+     * Stores permit sets that may be submitted at any time by a client.
      *
      * Helper fragments forward to this class when the user grants arrive.
      */
@@ -274,7 +274,7 @@ public class AndroidPermit implements Permit.Builder, Permission.Adapter {
      * Ensures only one instance of {@link Helper} is attached to the activity.
      *
      * @param fm Support fragment manager.
-     * @return a fragment that builds {@link Permit.Builder} objects.
+     * @return a helper object for building {@link Permit.Builder} objects.
      */
     public static Helper of(FragmentManager fm) {
         final SupportHelper helper;

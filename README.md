@@ -119,9 +119,9 @@ Android Marshmallow introduced a new security model that requires apps to ask
 permission from the user during runtime and not during installation.
 
 There are two ways to ask permissions: the sloppy way and the proper way. Both
-involve getting a reference to `AndroidPermit.Helper`, a headless fragment that
-stores all permission sets being requested by an activity or fragment and
-dispatches the appropriate callback depending on the user response.
+involve getting a reference to a helper object that stores all permission sets
+that may be requested by an activity or fragment and dispatches the appropriate
+callback depending on the user response.
 
 ```java
 // You should never instantiate the helper fragment directly. Always use the
@@ -146,10 +146,10 @@ permits
     // and to give the user another chance to accept (or reject) your request.
     .before(appeal -> {
       // You must call appeal#submit() at some point here, otherwise it's just
-      // like your permissions are permanently denied. Your granted callback
+      // as if your permissions are permanently denied: your granted callback
       // will never be called. That said, you shouldn't unconditionally call
-      // appeal#submit(). It must be called as a result of some user input, e.g.
-      // a button press in a dialog or snackbar.
+      // appeal#submit() either. It must be called as a result of some user
+      // input, e.g. a button press in a dialog or snackbar.
       showDialog(
           "Permissions",
           "Please allow me to do\n" + TextUtils.join("\n- ", appeal.permissions()),
@@ -222,6 +222,11 @@ presented merely as an option. The permission dialog appears so infrequently
 that I think it's often times fine to use the sloppy style.
 
 
+## AndroidMachine
+
+This one's a little too large to be in a README. A blog post is forthcoming.
+
+
 ## Installation
 
 This library is published at jcenter.
@@ -232,6 +237,9 @@ dependencies {
     compile "ph.codeia.vanilla:vanilla-android:0.3.5"
 }
 ```
+I might not always remember to update this part. Scroll up to the top of the
+README and look at the latest version badge from bintray to be sure.
+
 I might not always remember to update this part. Scroll up to the top of the
 README and look at the latest version badge from bintray to be sure.
 
