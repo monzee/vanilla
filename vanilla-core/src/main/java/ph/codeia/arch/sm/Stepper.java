@@ -71,7 +71,7 @@ extends Machine<S, A, C> {
     }
 
     /**
-     * Takes one future action and calls {@link #apply(C, A)} with it.
+     * Takes one future action and calls {@code #apply(C, A)} with it.
      *
      * @param client The output channel.
      * @return false if the future queue is empty; true otherwise.
