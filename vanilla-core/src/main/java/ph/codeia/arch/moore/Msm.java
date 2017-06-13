@@ -61,14 +61,13 @@ public interface Msm {
         void await(Future<A> task);
 
         /**
-         * Cancels the tasks being awaited and returns an action that receives
-         * an iterable of the actions that generated the currently pending
-         * tasks.
+         * Cancels the tasks being awaited and returns an an iterable of the
+         * actions that generated the currently running tasks.
          *
-         * @return an action that calls {@link Effect#fold(Iterable)} with the
-         * action iterable.
+         * @return an iterable that is meant to be passed to an {@link Action}
+         * impl that calls {@link Effect#fold(Iterable)}
          */
-        A stop();
+        Iterable<A> stop();
 
         /**
          * @return the current state of/last action executed by the machine.

@@ -91,10 +91,14 @@ implements Msm.Machine<A, E> {
         hook.runOnUiThread(new Runnable() {
             @Override
             public void run() {
-               if (moveTo(newState)) {
-                   newState.apply(output);
-                   hook.didExec(newState);
-               }
+                try {
+                    if (moveTo(newState)) {
+                        newState.apply(output);
+                        hook.didExec(newState);
+                    }
+                } catch (Exception e) {
+                    hook.handle(e);
+                }
             }
         });
     }
@@ -107,7 +111,7 @@ implements Msm.Machine<A, E> {
             public void run() {
                 try {
                     exec(task.get());
-                } catch (final ExecutionException e) {
+                } catch (ExecutionException e) {
                     hook.handle(e);
                 } catch (InterruptedException ignored) {
                 } finally {
@@ -118,21 +122,15 @@ implements Msm.Machine<A, E> {
         inFlight.add(join.get());
     }
 
-    @SuppressWarnings("unchecked")
     @Override
-    public A stop() {
+    public Iterable<A> stop() {
         final Queue<A> backlog = new ArrayDeque<>();
         for (Join<A> join : inFlight) {
-            join.cancel();
+            backlog.add(join.cancel());
         }
         backlog.add(state);
         inFlight.clear();
-        return (A) new Msm.Action<A, E>() {
-            @Override
-            public void apply(E e) {
-                e.fold(backlog);
-            }
-        };
+        return backlog;
     }
 
     @Override
