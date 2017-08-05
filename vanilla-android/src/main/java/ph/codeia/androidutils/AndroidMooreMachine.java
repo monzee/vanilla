@@ -4,34 +4,35 @@ package ph.codeia.androidutils;
  * This file is a part of the vanilla project.
  */
 
-import android.os.Handler;
-import android.os.Looper;
-
 import java.util.concurrent.ExecutorService;
 
 import ph.codeia.arch.moore.Machine;
 import ph.codeia.arch.moore.Msm;
+import ph.codeia.meta.Experimental;
+import ph.codeia.values.Do;
 
+@Experimental
 public class AndroidMooreMachine<
         A extends Msm.Action<A, E>,
         E extends Msm.Effect<A, E>>
 extends Machine<A, E> {
 
-    private static final Machine.Adapter ANDROID_UI_ADAPTER = new Adapter() {
-        private Handler mainHandler = new Handler(Looper.getMainLooper());
+    public static final Dispatcher UI_DISPATCHER = new Dispatcher() {
+        private final Do.Just<Runnable> runner = AndroidRunner.UI.run(new Do.Just<Runnable>() {
+            @Override
+            public void got(Runnable value) {
+                value.run();
+            }
+        });
 
         @Override
         public void runOnUiThread(Runnable block) {
-            if (Thread.currentThread() == mainHandler.getLooper().getThread()) {
-                block.run();
-            } else {
-                mainHandler.post(block);
-            }
+            runner.got(block);
         }
 
         @Override
         public void handle(final Throwable e) {
-            runOnUiThread(new Runnable() {
+            runner.got(new Runnable() {
                 @Override
                 public void run() {
                     throw new RuntimeException(e);
@@ -41,7 +42,7 @@ extends Machine<A, E> {
     };
 
     public AndroidMooreMachine(ExecutorService junction, E output) {
-        super(junction, output, ANDROID_UI_ADAPTER);
+        super(junction, output, UI_DISPATCHER);
     }
 
 }

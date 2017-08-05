@@ -11,19 +11,42 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicReference;
 
+import ph.codeia.meta.Experimental;
+
+@Experimental
 public class Machine<
         A extends Msm.Action<A, E>,
         E extends Msm.Effect<A, E>>
 implements Msm.Machine<A, E> {
 
-    public interface ExtendedAdapter<A extends Msm.Action<A, ?>> extends Adapter {
-        boolean willMoveTo(A state);
-        void didExec(A state);
-    }
-
-    public interface Adapter {
+    public interface Dispatcher {
         void runOnUiThread(Runnable block);
         void handle(Throwable e);
+    }
+
+    public static class Adapter<A extends Msm.Action<A, ?>> implements Dispatcher {
+        private final Dispatcher dispatcher;
+
+        public Adapter(Dispatcher dispatcher) {
+            this.dispatcher = dispatcher;
+        }
+
+        public boolean willMoveTo(A state) {
+            return true;
+        }
+
+        public void didExec(A state) {
+        }
+
+        @Override
+        public void runOnUiThread(Runnable block) {
+            dispatcher.runOnUiThread(block);
+        }
+
+        @Override
+        public void handle(Throwable e) {
+            dispatcher.handle(e);
+        }
     }
 
     private static class Join<A extends Msm.Action<A, ?>> {
@@ -43,35 +66,15 @@ implements Msm.Machine<A, E> {
 
     private final ExecutorService junction;
     private final E output;
-    private final ExtendedAdapter<A> hook;
+    private final Adapter<A> hook;
     private final Queue<Join<A>> inFlight = new ArrayDeque<>();
     private A state;
 
-    public Machine(ExecutorService junction, E output, final Adapter hook) {
-        this(junction, output, new ExtendedAdapter<A>() {
-            @Override
-            public boolean willMoveTo(A state) {
-                return true;
-            }
-
-            @Override
-            public void didExec(A state) {
-
-            }
-
-            @Override
-            public void runOnUiThread(Runnable block) {
-                hook.runOnUiThread(block);
-            }
-
-            @Override
-            public void handle(Throwable e) {
-                hook.handle(e);
-            }
-        });
+    public Machine(ExecutorService junction, E output, Dispatcher hook) {
+        this(junction, output, new Adapter<A>(hook));
     }
 
-    public Machine(ExecutorService junction, E output, ExtendedAdapter<A> hook) {
+    public Machine(ExecutorService junction, E output, Adapter<A> hook) {
         this.junction = junction;
         this.output = output;
         this.hook = hook;
@@ -116,6 +119,7 @@ implements Msm.Machine<A, E> {
                 } catch (InterruptedException ignored) {
                 } finally {
                     inFlight.remove(join.get());
+                    join.set(null);
                 }
             }
         })));
@@ -128,8 +132,6 @@ implements Msm.Machine<A, E> {
         for (Join<A> join : inFlight) {
             backlog.add(join.cancel());
         }
-        backlog.add(state);
-        inFlight.clear();
         return backlog;
     }
 

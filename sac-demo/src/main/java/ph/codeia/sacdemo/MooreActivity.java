@@ -48,7 +48,8 @@ public class MooreActivity extends AppCompatActivity implements C.View {
     @Override
     protected void onPause() {
         super.onPause();
-        my.state = machine.stop();
+        machine.stop();
+        my.state = machine.peek();
     }
 
     @Override

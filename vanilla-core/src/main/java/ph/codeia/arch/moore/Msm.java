@@ -6,6 +6,8 @@ package ph.codeia.arch.moore;
 
 import java.util.concurrent.Future;
 
+import ph.codeia.meta.Experimental;
+
 /**
  * Moore state machine.
  * <p>
@@ -17,6 +19,7 @@ import java.util.concurrent.Future;
  * In this implementation, the state is implicit
  * </p>
  */
+@Experimental
 public interface Msm {
 
     interface Action<A extends Action<A, E>, E extends Effect<A, E>> {
