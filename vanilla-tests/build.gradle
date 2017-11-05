@@ -1,12 +1,10 @@
-apply plugin: 'java'
-apply plugin: 'me.tatarka.retrolambda'
+apply plugin: 'java-library'
 
 dependencies {
-    compile project(':vanilla-core')
-    testCompile 'junit:junit:4.12'
+    implementation project(':vanilla-core')
+    testImplementation 'junit:junit:4.12'
 }
 
-retrolambda {
-    oldJdk '/usr/lib/jvm/java-7-openjdk-amd64/'
-    defaultMethods true
-}
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+

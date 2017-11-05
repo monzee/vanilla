@@ -3,7 +3,6 @@ apply plugin: 'maven-publish'
 
 android {
     compileSdkVersion 25
-    buildToolsVersion '25.0.2'
 
     defaultConfig {
         minSdkVersion 11
@@ -22,8 +21,8 @@ android {
 }
 
 dependencies {
-    compile project(':vanilla-core')
-    provided 'com.android.support:appcompat-v7:25.1.0'
+    api project(':vanilla-core')
+    implementation 'com.android.support:appcompat-v7:25.1.0'
 }
 
 publishing {
@@ -38,9 +37,8 @@ publishing {
 
     android.libraryVariants.matching { it.buildType.name == 'release' }.all {
         def stem = name.capitalize()
-        def (allDeps, provided) = variantData.variantDependency.compileDependencies.with {
-            [directAndroidDependencies + directJavaDependencies, providedList]
-        }
+        def hardDeps = variantData.variantDependency.apiElements.allDependencies
+        def allDeps = variantData.variantDependency.runtimeElements.allDependencies
         def docs = task("javadoc${stem}",
                 dependsOn: ':vanilla-core:javadoc',
                 type: Javadoc,
@@ -79,10 +77,10 @@ publishing {
                     dependencies {
                         allDeps.each { dep ->
                             dependency {
-                                groupId dep.coordinates.groupId
-                                artifactId dep.coordinates.artifactId
-                                version dep.coordinates.version
-                                if (dep.coordinates.toString() in provided) {
+                                groupId dep.group
+                                artifactId dep.name
+                                version dep.version
+                                if (!(dep in hardDeps)) {
                                     scope 'provided'
                                 }
                             }
